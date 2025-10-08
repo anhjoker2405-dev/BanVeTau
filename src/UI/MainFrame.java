@@ -86,87 +86,94 @@ public class MainFrame extends JFrame {
         return top;
     }
 
-    // Build Sidebar
     private JPanel buildSidebar() {
-    JPanel side = new JPanel(new BorderLayout());
-    side.setPreferredSize(new Dimension(260, 750));
-    side.setBackground(SIDEBAR_BG);
+        JPanel side = new JPanel(new BorderLayout());
+        side.setPreferredSize(new Dimension(260, 750));
+        side.setBackground(SIDEBAR_BG);
 
-    JPanel menu = new JPanel();
-    menu.setOpaque(false);
-    menu.setLayout(new BoxLayout(menu, BoxLayout.Y_AXIS));
+        JPanel menu = new JPanel();
+        menu.setOpaque(false);
+        menu.setLayout(new BoxLayout(menu, BoxLayout.Y_AXIS));
 
-    // 1) Trang chủ
-    menu.add(makeTopButton("Trang chủ", () -> cardLayout.show(content, "home")));
-    menu.add(Box.createVerticalStrut(6));
+        menu.add(makeTopButton("Trang chủ", () -> cardLayout.show(content, "home")));
+        menu.add(Box.createVerticalStrut(6));
 
-    // 2) Vé (xổ xuống)
-    JToggleButton btnVe = makeToggle("Vé");
-    JPanel veGroup = groupPanel(
-            makeChild("Bán vé", () -> cardLayout.show(content, "banve")),
-            makeChild("Đổi vé", () -> cardLayout.show(content, "doive")),
-            makeChild("Trả vé", () -> cardLayout.show(content, "trave"))
-    );
-    btnVe.addActionListener(e -> { veGroup.setVisible(btnVe.isSelected()); menu.revalidate(); menu.repaint(); });
-    menu.add(btnVe);
-    menu.add(veGroup);
-    menu.add(Box.createVerticalStrut(6));
-
-    // 3) Tra cứu (xổ xuống)
-    JToggleButton btnTra = makeToggle("Tra cứu");
-    JPanel traGroup = groupPanel(
+        JToggleButton btnDanhMuc = makeToggle("Danh mục");
+        JPanel dmGroup = groupPanel(
             makeChild("Khuyến mãi", () -> cardLayout.show(content, "khuyenmai")),
             makeChild("Danh sách chuyến đi", () -> cardLayout.show(content, "chuyendi")),
-            makeChild("Tàu", () -> cardLayout.show(content, "tau")),
             makeChild("Khách hàng", () -> cardLayout.show(content, "khachhang"))
-    );
-    btnTra.addActionListener(e -> { traGroup.setVisible(btnTra.isSelected()); menu.revalidate(); menu.repaint(); });
-    menu.add(btnTra);
-    menu.add(traGroup);
-    menu.add(Box.createVerticalStrut(6));
+        );
+        btnDanhMuc.addActionListener(e -> { dmGroup.setVisible(btnDanhMuc.isSelected()); menu.revalidate(); menu.repaint(); });
+        menu.add(btnDanhMuc);
+        menu.add(dmGroup);
+        menu.add(Box.createVerticalStrut(6));
 
-    
+        JToggleButton btnXuLy = makeToggle("Xử lý");
+        JPanel xlGroup = groupPanel(
+            makeChild("Bán vé",  () -> cardLayout.show(content, "banve")),
+            makeChild("Đổi vé",  () -> cardLayout.show(content, "doive")),
+            makeChild("Trả vé",  () -> cardLayout.show(content, "trave"))
+        );
+        btnXuLy.addActionListener(e -> { xlGroup.setVisible(btnXuLy.isSelected()); menu.revalidate(); menu.repaint(); });
+        menu.add(btnXuLy);
+        menu.add(xlGroup);
+        menu.add(Box.createVerticalStrut(6));
+
+        JToggleButton btnSearch = makeToggle("Tìm kiếm");
+        JPanel searchGroup = groupPanel(
+            makeChild("Tìm kiếm chuyến đi",  () -> cardLayout.show(content, "timkiem_chuyendi")),
+            makeChild("Tìm kiếm khách hàng", () -> cardLayout.show(content, "timkiem_khachhang")),
+            makeChild("Tìm kiếm nhân viên",  () -> cardLayout.show(content, "timkiem_nhanvien")),
+            makeChild("Tìm kiếm hóa đơn",    () -> cardLayout.show(content, "timkiem_hoadon"))
+        );
+        btnSearch.addActionListener(e -> { searchGroup.setVisible(btnSearch.isSelected()); menu.revalidate(); menu.repaint(); });
+        menu.add(btnSearch);
+        menu.add(searchGroup);
+        menu.add(Box.createVerticalStrut(6));
+
         if (isManager()) {
             JToggleButton btnQL = makeToggle("Quản lý");
             JPanel qlGroup = groupPanel(
-                    makeChild("Quản lý tàu", () -> cardLayout.show(content, "quanly_tau")),
-                    makeChild("Quản lý nhân viên", () -> cardLayout.show(content, "quanly_nhanvien")),
-                    makeChild("Quản lý khuyến mãi", () -> cardLayout.show(content, "quanly_khuyenmai")),
-                    makeChild("Quản lý chuyến đi", () -> cardLayout.show(content, "quanly_chuyendi"))
+                makeChild("Quản lý tàu",        () -> cardLayout.show(content, "quanly_tau")),
+                makeChild("Quản lý nhân viên",  () -> cardLayout.show(content, "quanly_nhanvien")),
+                makeChild("Quản lý khuyến mãi", () -> cardLayout.show(content, "quanly_khuyenmai")),
+                makeChild("Quản lý chuyến đi",  () -> cardLayout.show(content, "quanly_chuyendi"))
             );
             btnQL.addActionListener(e -> { qlGroup.setVisible(btnQL.isSelected()); menu.revalidate(); menu.repaint(); });
             menu.add(btnQL);
             menu.add(qlGroup);
-            menu.add(Box.createVerticalStrut(NAV_GAP));
+            menu.add(Box.createVerticalStrut(6));
         }
-// 4) Tài khoản
-    menu.add(makeTopButton("Tài khoản", () -> cardLayout.show(content, "taikhoan")));
-    menu.add(Box.createVerticalStrut(6));
 
-    // 5) Thống kê
-    menu.add(makeTopButton("Thống kê", () -> cardLayout.show(content, "thongke")));
-    menu.add(Box.createVerticalStrut(6));
+        JToggleButton btnTK = makeToggle("Thống kê");
+        JPanel tkGroup = groupPanel(
+            makeChild("Doanh thu", () -> cardLayout.show(content, "thongke_doanhthu"))
+        );
+        btnTK.addActionListener(e -> { tkGroup.setVisible(btnTK.isSelected()); menu.revalidate(); menu.repaint(); });
+        menu.add(btnTK);
+        menu.add(tkGroup);
+        menu.add(Box.createVerticalStrut(6));
 
-    // 6) Đăng xuất
-    menu.add(makeTopButton("Đăng xuất", () -> {
-        int r = JOptionPane.showConfirmDialog(this, "Đăng xuất?", "Xác nhận",
-                JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
-        if (r == JOptionPane.YES_OPTION) {
-            dispose();
-            new LoginFrame().setVisible(true);
-        }
-    }));
+        menu.add(makeTopButton("Đăng xuất", () -> {
+            int r = JOptionPane.showConfirmDialog(this, "Đăng xuất?", "Xác nhận",
+                    JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+            if (r == JOptionPane.YES_OPTION) {
+                dispose();
+                new LoginFrame().setVisible(true);
+            }
+        }));
 
-    // Cho phép cuộn nếu thiếu chỗ
-    JScrollPane sp = new JScrollPane(menu);
-    sp.setBorder(null);
-    sp.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-    sp.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
-    sp.getVerticalScrollBar().setUnitIncrement(16);
+        // Cho phép cuộn nếu thiếu chỗ
+        JScrollPane sp = new JScrollPane(menu);
+        sp.setBorder(null);
+        sp.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        sp.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+        sp.getVerticalScrollBar().setUnitIncrement(16);
 
-    side.add(sp, BorderLayout.CENTER);
-    return side;
-}
+        side.add(sp, BorderLayout.CENTER);
+        return side;
+    }
     
 
     // Create top buttons
@@ -274,27 +281,29 @@ public class MainFrame extends JFrame {
         });
         return b;
     }
-    // Build the content panels for each section
+    
     private void buildCards() {
         content.add(buildHomePanel(), "home");
-        // Vé
+
         content.add(new BanVe(), "banve");
         content.add(new DoiVe(), "doive");
         content.add(new TraVe(), "trave");
-        // Tra cứu
-        content.add(simplePanel("Khuyến mãi"), "khuyenmai");
-        content.add(simplePanel("Danh sách chuyến đi"), "chuyendi");
-        content.add(simplePanel("Tàu"), "tau");
-        content.add(simplePanel("Khách hàng"), "khachhang");
-        // Tài khoản & Thống kê
-        content.add(simplePanel("Tài khoản"), "taikhoan");
-        content.add(simplePanel("Thống kê"), "thongke");
-        // Quản lý
-        content.add(simplePanel("Quản lý tàu"),        "quanly_tau");
-        content.add(simplePanel("Quản lý nhân viên"),  "quanly_nhanvien");
-        content.add(simplePanel("Quản lý khuyến mãi"), "quanly_khuyenmai");
-        content.add(simplePanel("Quản lý chuyến đi"),  "quanly_chuyendi");
 
+        content.add(simplePanel("Khuyến mãi"),            "khuyenmai");
+        content.add(simplePanel("Danh sách chuyến đi"),   "chuyendi");
+        content.add(simplePanel("Khách hàng"),            "khachhang");
+
+        content.add(simplePanel("Tìm kiếm chuyến đi"),    "timkiem_chuyendi");
+        content.add(simplePanel("Tìm kiếm khách hàng"),   "timkiem_khachhang");
+        content.add(simplePanel("Tìm kiếm nhân viên"),    "timkiem_nhanvien");
+        content.add(simplePanel("Tìm kiếm hóa đơn"),      "timkiem_hoadon");
+
+        content.add(simplePanel("Quản lý tàu"),           "quanly_tau");
+        content.add(simplePanel("Quản lý nhân viên"),     "quanly_nhanvien");
+        content.add(simplePanel("Quản lý khuyến mãi"),    "quanly_khuyenmai");
+        content.add(simplePanel("Quản lý chuyến đi"),     "quanly_chuyendi");
+
+        content.add(simplePanel("Thống kê - Doanh thu"),  "thongke_doanhthu");
     }
 
     private JPanel buildHomePanel() {
