@@ -4,10 +4,7 @@
  */
 package model;
 
-/**
- *
- * @author ASUS
- */
+
 public class HanhKhach {
     private String maHK;
     private String tenHK;

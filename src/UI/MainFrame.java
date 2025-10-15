@@ -100,11 +100,11 @@ public class MainFrame extends JFrame {
 
         JToggleButton btnDanhMuc = makeToggle("Danh mục");
         JPanel dmGroup = groupPanel(
-            makeChild("Khuyến mãi", () -> cardLayout.show(content, "khuyenmai")),
+            makeChild("Quản lý khuyến mãi", () -> cardLayout.show(content, "khuyenmai")),
 //            makeChild("Danh sách chuyến đi", () -> cardLayout.show(content, "chuyendi")),
 //            makeChild("Khách hàng", () -> cardLayout.show(content, "khachhang")),
-//            makeChild("Tài khoản", () -> cardLayout.show(content, "taikhoan")),
-            makeChild("Quản lí tài khoản",  () -> cardLayout.show(content, "quanly_taikhoan")),
+//            makeChild("Tài khoản", () -> cardLayout.show(content, "taikhoan")), thấy để mục 'tai khoan' dùng để xem thôi thì để ở trên góc phải avatar được ấy 
+            makeChild("Quản lí tài khoản",  () -> cardLayout.show(content, "quanly_taikhoan")), 
             makeChild("Quản lí Nhân viên",  () -> cardLayout.show(content, "quanly_nhanvien")),
             makeChild("Quản lý chuyến đi",  () -> cardLayout.show(content, "quanly_chuyendi")),
             makeChild("Quản lý hành khách",  () -> cardLayout.show(content, "quanly_hành khách"))
@@ -141,7 +141,7 @@ public class MainFrame extends JFrame {
 //        if (isManager()) {
 //            JToggleButton btnQL = makeToggle("Quản lý");
 //            JPanel qlGroup = groupPanel(
-//                //makeChild("Quản lý tàu",        () -> cardLayout.show(content, "quanly_tau")),
+//                //makeChild("Quản lý tàu",        () -> cardLayout.show(content, "quanly_tau")), //bỏ quản lí đi, tàu cố định số tàu rồi nên không cần
 //                makeChild("Quản lý tài khoản",        () -> cardLayout.show(content, "quanly_taikhoan")),    
 //                makeChild("Quản lý nhân viên",  () -> cardLayout.show(content, "quanly_nhanvien")),
 //                makeChild("Quản lý khuyến mãi", () -> cardLayout.show(content, "quanly_khuyenmai")),
@@ -297,29 +297,31 @@ public class MainFrame extends JFrame {
         content.add(new DoiVe(), "doive");
         content.add(new TraVe(), "trave");
 
-        content.add(simplePanel("Khuyến mãi"),            "khuyenmai");
+        content.add(simplePanel(" Quản lý khuyến mãi"),            "khuyenmai");
 //        content.add(simplePanel("Danh sách chuyến đi"),   "chuyendi");
 //        content.add(simplePanel("Khách hàng"),            "khachhang");
 //        content.add(simplePanel("Tài khoản"),             "taikhoan");
         content.add(new HanhKhachPanel(),                 "quanly_hành khách");
         content.add(simplePanel("Quản lý tài khoản"),     "quanly_taikhoan");
-        content.add(simplePanel("Quản lý nhân viên"),     "quanly_nhanvien");
+//        content.add(simplePanel("Quản lý nhân viên"),     "quanly_nhanvien");
+        content.add(new QuanLyNhanVienPanel(),             "quanly_nhanvien");
 //        content.add(simplePanel("Quản lý khuyến mãi"),    "quanly_khuyenmai");
         content.add(simplePanel("Quản lý chuyến đi"),     "quanly_chuyendi");
         
 
-        content.add(simplePanel("Tìm kiếm chuyến đi"),    "timkiem_chuyendi");
+//        content.add(simplePanel("Tìm kiếm chuyến đi"),    "timkiem_chuyendi");
+        content.add(new TimKiemChuyenDiPanel(),            "timkiem_chuyendi");
         content.add(simplePanel("Tìm kiếm khách hàng"),   "timkiem_khachhang");
         content.add(simplePanel("Tìm kiếm nhân viên"),    "timkiem_nhanvien");
         content.add(simplePanel("Tìm kiếm hóa đơn"),      "timkiem_hoadon");
         content.add(simplePanel("Tra cứu khuyến mãi"),      "timkiem_khuyenmai");
 
-//        content.add(simplePanel("Quản lý tàu"),           "quanly_tau");
+//        content.add(simplePanel("Quản lý tàu"),           "quanly_tau"); //bỏ quản lí đi, tàu cố định số tàu rồi nên không cần
 //        content.add(simplePanel("Quản lý tài khoản"),     "quanly_taikhoan");
 //        content.add(simplePanel("Quản lý nhân viên"),     "quanly_nhanvien");
 //        content.add(simplePanel("Quản lý khuyến mãi"),    "quanly_khuyenmai");
 //        content.add(simplePanel("Quản lý chuyến đi"),     "quanly_chuyendi");
-//        content.add(new HanhKhachPanel(),     "quanly_hành khách");
+//        content.add(new HanhKhachPanel(),                 "quanly_hành khách");
         
 
         content.add(simplePanel("Thống kê - Doanh thu"),  "thongke_doanhthu");

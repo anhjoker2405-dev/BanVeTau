@@ -41,7 +41,7 @@ public class HanhKhach_Dao {
         }
     }
 
-    /** Phát sinh mã tiếp theo định dạng HK000001, HK000002,... */
+    /** Phát sinh mã tiếp theo định dạng HK000001,... */
     public String nextId(Connection cn) throws SQLException {
         String sql = "SELECT MAX(maHK) FROM HanhKhach WHERE maHK LIKE 'HK%'";
         try (Statement st = cn.createStatement();
@@ -120,7 +120,7 @@ public class HanhKhach_Dao {
         return list;
     }
 
-    // =================== BỔ SUNG CHO BÁN VÉ ===================
+    // ======= BỔ SUNG CHO BÁN VÉ =======
 
     /** Tồn tại CCCD? (dùng nội bộ trong cùng transaction) */
     public boolean existsByCCCD(Connection cn, String cccd) throws SQLException {

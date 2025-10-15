@@ -24,17 +24,17 @@ public class HanhKhachPanel extends JPanel {
     private TableRowSorter<DefaultTableModel> sorter;
     private JTextField txtSearch;
 
-    // --- Form ADD ---
+    // --- Form Nhập ---
     private JTextField txtTen_Add, txtSDT_Add, txtCCCD_Add;
     private JComboBox<String> cboGT_Add;
     private JButton btnThem;
 
-    // --- Form EDIT ---
+    // --- Form Sửa ---
     private JTextField txtMa_Edit, txtTen_Edit, txtSDT_Edit, txtCCCD_Edit;
     private JComboBox<String> cboGT_Edit;
     private JButton btnCapNhat;
 
-    // --- Form DELETE (read-only) ---
+    // --- Form Xóa (read-only) ---
     private JTextField txtMa_Del, txtTen_Del, txtSDT_Del, txtCCCD_Del, txtGT_Del;
     private JButton btnXoa;
 
@@ -46,7 +46,7 @@ public class HanhKhachPanel extends JPanel {
     }
 
     private void initUI() {
-        // ========== LEFT: TABLE ==========
+        // ===== Bên trái màn: TABLE =====
         JPanel left = new JPanel(new BorderLayout(5,5));
         left.setBorder(new TitledBorder("Danh sách hành khách"));
 
@@ -70,7 +70,7 @@ public class HanhKhachPanel extends JPanel {
         btnTim.addActionListener(e -> applyFilter());
         txtSearch.addKeyListener(new KeyAdapter() { @Override public void keyReleased(KeyEvent e) { applyFilter(); }});
 
-        // ========== RIGHT: TABS ==========
+        // ==== Bên phải màn: TABS ====
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab("Thêm", buildAddTab());
         tabs.addTab("Sửa",  buildEditTab());
@@ -85,7 +85,7 @@ public class HanhKhachPanel extends JPanel {
         add(split, BorderLayout.CENTER);
     }
 
-    // ---------------- TABS ----------------
+    // -------- TABS -------
     private JPanel buildAddTab() {
         JPanel p = new JPanel(new GridBagLayout());
         GridBagConstraints gc = baseGC();
