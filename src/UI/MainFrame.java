@@ -101,8 +101,13 @@ public class MainFrame extends JFrame {
         JToggleButton btnDanhMuc = makeToggle("Danh mục");
         JPanel dmGroup = groupPanel(
             makeChild("Khuyến mãi", () -> cardLayout.show(content, "khuyenmai")),
-            makeChild("Danh sách chuyến đi", () -> cardLayout.show(content, "chuyendi")),
-            makeChild("Khách hàng", () -> cardLayout.show(content, "khachhang"))
+//            makeChild("Danh sách chuyến đi", () -> cardLayout.show(content, "chuyendi")),
+//            makeChild("Khách hàng", () -> cardLayout.show(content, "khachhang")),
+//            makeChild("Tài khoản", () -> cardLayout.show(content, "taikhoan")),
+            makeChild("Quản lí tài khoản",  () -> cardLayout.show(content, "quanly_taikhoan")),
+            makeChild("Quản lí Nhân viên",  () -> cardLayout.show(content, "quanly_nhanvien")),
+            makeChild("Quản lý chuyến đi",  () -> cardLayout.show(content, "quanly_chuyendi")),
+            makeChild("Quản lý hành khách",  () -> cardLayout.show(content, "quanly_hành khách"))
         );
         btnDanhMuc.addActionListener(e -> { dmGroup.setVisible(btnDanhMuc.isSelected()); menu.revalidate(); menu.repaint(); });
         menu.add(btnDanhMuc);
@@ -125,26 +130,29 @@ public class MainFrame extends JFrame {
             makeChild("Tìm kiếm chuyến đi",  () -> cardLayout.show(content, "timkiem_chuyendi")),
             makeChild("Tìm kiếm khách hàng", () -> cardLayout.show(content, "timkiem_khachhang")),
             makeChild("Tìm kiếm nhân viên",  () -> cardLayout.show(content, "timkiem_nhanvien")),
-            makeChild("Tìm kiếm hóa đơn",    () -> cardLayout.show(content, "timkiem_hoadon"))
+            makeChild("Tìm kiếm hóa đơn",    () -> cardLayout.show(content, "timkiem_hoadon")),
+            makeChild("Tra cứu khuyến mãi",    () -> cardLayout.show(content, "timkiem_khuyenmai"))
         );
         btnSearch.addActionListener(e -> { searchGroup.setVisible(btnSearch.isSelected()); menu.revalidate(); menu.repaint(); });
         menu.add(btnSearch);
         menu.add(searchGroup);
         menu.add(Box.createVerticalStrut(6));
 
-        if (isManager()) {
-            JToggleButton btnQL = makeToggle("Quản lý");
-            JPanel qlGroup = groupPanel(
-                makeChild("Quản lý tàu",        () -> cardLayout.show(content, "quanly_tau")),
-                makeChild("Quản lý nhân viên",  () -> cardLayout.show(content, "quanly_nhanvien")),
-                makeChild("Quản lý khuyến mãi", () -> cardLayout.show(content, "quanly_khuyenmai")),
-                makeChild("Quản lý chuyến đi",  () -> cardLayout.show(content, "quanly_chuyendi"))
-            );
-            btnQL.addActionListener(e -> { qlGroup.setVisible(btnQL.isSelected()); menu.revalidate(); menu.repaint(); });
-            menu.add(btnQL);
-            menu.add(qlGroup);
-            menu.add(Box.createVerticalStrut(6));
-        }
+//        if (isManager()) {
+//            JToggleButton btnQL = makeToggle("Quản lý");
+//            JPanel qlGroup = groupPanel(
+//                //makeChild("Quản lý tàu",        () -> cardLayout.show(content, "quanly_tau")),
+//                makeChild("Quản lý tài khoản",        () -> cardLayout.show(content, "quanly_taikhoan")),    
+//                makeChild("Quản lý nhân viên",  () -> cardLayout.show(content, "quanly_nhanvien")),
+//                makeChild("Quản lý khuyến mãi", () -> cardLayout.show(content, "quanly_khuyenmai")),
+//                makeChild("Quản lý chuyến đi",  () -> cardLayout.show(content, "quanly_chuyendi")),
+//                makeChild("Quản lý hành khách",  () -> cardLayout.show(content, "quanly_hành khách"))
+//            );
+//            btnQL.addActionListener(e -> { qlGroup.setVisible(btnQL.isSelected()); menu.revalidate(); menu.repaint(); });
+//            menu.add(btnQL);
+//            menu.add(qlGroup);
+//            menu.add(Box.createVerticalStrut(6));
+//        }
 
         JToggleButton btnTK = makeToggle("Thống kê");
         JPanel tkGroup = groupPanel(
@@ -290,18 +298,29 @@ public class MainFrame extends JFrame {
         content.add(new TraVe(), "trave");
 
         content.add(simplePanel("Khuyến mãi"),            "khuyenmai");
-        content.add(simplePanel("Danh sách chuyến đi"),   "chuyendi");
-        content.add(simplePanel("Khách hàng"),            "khachhang");
+//        content.add(simplePanel("Danh sách chuyến đi"),   "chuyendi");
+//        content.add(simplePanel("Khách hàng"),            "khachhang");
+//        content.add(simplePanel("Tài khoản"),             "taikhoan");
+        content.add(new HanhKhachPanel(),                 "quanly_hành khách");
+        content.add(simplePanel("Quản lý tài khoản"),     "quanly_taikhoan");
+        content.add(simplePanel("Quản lý nhân viên"),     "quanly_nhanvien");
+//        content.add(simplePanel("Quản lý khuyến mãi"),    "quanly_khuyenmai");
+        content.add(simplePanel("Quản lý chuyến đi"),     "quanly_chuyendi");
+        
 
         content.add(simplePanel("Tìm kiếm chuyến đi"),    "timkiem_chuyendi");
         content.add(simplePanel("Tìm kiếm khách hàng"),   "timkiem_khachhang");
         content.add(simplePanel("Tìm kiếm nhân viên"),    "timkiem_nhanvien");
         content.add(simplePanel("Tìm kiếm hóa đơn"),      "timkiem_hoadon");
+        content.add(simplePanel("Tra cứu khuyến mãi"),      "timkiem_khuyenmai");
 
-        content.add(simplePanel("Quản lý tàu"),           "quanly_tau");
-        content.add(simplePanel("Quản lý nhân viên"),     "quanly_nhanvien");
-        content.add(simplePanel("Quản lý khuyến mãi"),    "quanly_khuyenmai");
-        content.add(simplePanel("Quản lý chuyến đi"),     "quanly_chuyendi");
+//        content.add(simplePanel("Quản lý tàu"),           "quanly_tau");
+//        content.add(simplePanel("Quản lý tài khoản"),     "quanly_taikhoan");
+//        content.add(simplePanel("Quản lý nhân viên"),     "quanly_nhanvien");
+//        content.add(simplePanel("Quản lý khuyến mãi"),    "quanly_khuyenmai");
+//        content.add(simplePanel("Quản lý chuyến đi"),     "quanly_chuyendi");
+//        content.add(new HanhKhachPanel(),     "quanly_hành khách");
+        
 
         content.add(simplePanel("Thống kê - Doanh thu"),  "thongke_doanhthu");
     }
@@ -325,7 +344,6 @@ public class MainFrame extends JFrame {
             }
             bg = tmp;
 
-          
         }
 
         @Override
