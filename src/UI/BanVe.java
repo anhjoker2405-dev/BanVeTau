@@ -10,6 +10,10 @@ import java.util.List;
 import java.text.NumberFormat;
 import com.toedter.calendar.JDateChooser;
 
+import dao.ChuyenDi_Dao;
+import model.ChuyenDi;
+import java.time.format.DateTimeFormatter;
+import java.util.stream.Collectors;
 public class BanVe extends JPanel {
 
     private static final Color BLUE = new Color(47, 107, 255);
@@ -85,23 +89,34 @@ public class BanVe extends JPanel {
 
             subCards.show(subPanel, "form");
 
+            // Tải danh sách ga từ CSDL
+            loadStationsFromDb();
+
             rdOneWay.addActionListener(e -> dcReturn.setEnabled(false));
             rdRound.addActionListener(e -> dcReturn.setEnabled(true));
 
             btnSearch.addActionListener(e -> {
-                List<TrainInfo> data = mockTrains();
-                fillTrains(data);
-                seatArea.removeAll();
-                seatArea.add(centerMsg("Chọn một tàu để xem chỗ ngồi."), BorderLayout.CENTER);
-                seatArea.revalidate(); seatArea.repaint();
-                selections.clear();
-                btnNext.setEnabled(false);
-                subCards.show(subPanel, "result");
+                try {
+                    List<TrainInfo> data = searchTrainsFromDb();
+                    fillTrains(data);
+                    seatArea.removeAll();
+                    seatArea.add(centerMsg(data.isEmpty() ? "Không có chuyến phù hợp." : "Chọn một tàu để xem chỗ ngồi."), BorderLayout.CENTER);
+                    seatArea.revalidate(); seatArea.repaint();
+                    selections.clear();
+                    btnNext.setEnabled(false);
+                    subCards.show(subPanel, "result");
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this,
+                        "Lỗi tìm chuyến từ CSDL:\n" + ex.getMessage(),
+                        "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
             });
-
-            btnChangeSearch.addActionListener(e -> {
+btnChangeSearch.addActionListener(e -> {
                 selections.clear();
                 subCards.show(subPanel, "form");
+
+            // Tải danh sách ga từ CSDL
+            loadStationsFromDb();
             });
 
             btnNext.addActionListener(e -> showStep(2));
@@ -323,7 +338,82 @@ public class BanVe extends JPanel {
             }
             return b;
         }
+    
+// Định dạng giờ phút cho hiển thị
+private static final DateTimeFormatter HM = DateTimeFormatter.ofPattern("HH:mm");
+
+private void loadStationsFromDb() {
+    SwingUtilities.invokeLater(() -> {
+        try {
+            ChuyenDi_Dao dao = new ChuyenDi_Dao();
+            java.util.List<String> gaDi = dao.getAllGaDi();
+            java.util.List<String> gaDen = dao.getAllGaDen();
+
+            cbFrom.removeAllItems();
+            cbTo.removeAllItems();
+
+            cbFrom.addItem("Tất cả");
+            for (String s : gaDi) cbFrom.addItem(s);
+
+            cbTo.addItem("Tất cả");
+            for (String s : gaDen) cbTo.addItem(s);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this,
+                    "Lỗi tải danh sách ga từ CSDL:\n" + ex.getMessage(),
+                    "Lỗi", JOptionPane.ERROR_MESSAGE);
+            // Fallback tối thiểu
+            if (cbFrom.getItemCount() == 0) {
+                for (String s : new String[]{"Sài Gòn","Biên Hòa","Nha Trang","Đà Nẵng","Huế","Vinh","Hà Nội"}) cbFrom.addItem(s);
+            }
+            if (cbTo.getItemCount() == 0) {
+                for (String s : new String[]{"Hà Nội","Vinh","Huế","Đà Nẵng","Nha Trang","Biên Hòa","Sài Gòn"}) cbTo.addItem(s);
+            }
+        }
+    });
+}
+
+private List<TrainInfo> searchTrainsFromDb() throws Exception {
+    String gaDi = (String) cbFrom.getSelectedItem();
+    String gaDen = (String) cbTo.getSelectedItem();
+
+    Date startDay = dcStart.getDate();
+    if (startDay == null) startDay = new Date();
+
+    Calendar cal1 = Calendar.getInstance();
+    cal1.setTime(startDay);
+    cal1.set(Calendar.HOUR_OF_DAY, 0);
+    cal1.set(Calendar.MINUTE, 0);
+    cal1.set(Calendar.SECOND, 0);
+    cal1.set(Calendar.MILLISECOND, 0);
+
+    Calendar cal2 = Calendar.getInstance();
+    cal2.setTime(startDay);
+    cal2.set(Calendar.HOUR_OF_DAY, 23);
+    cal2.set(Calendar.MINUTE, 59);
+    cal2.set(Calendar.SECOND, 59);
+    cal2.set(Calendar.MILLISECOND, 999);
+
+    ChuyenDi_Dao dao = new ChuyenDi_Dao();
+    List<ChuyenDi> trips = dao.search(
+            null,
+            gaDi,
+            gaDen,
+            cal1.getTime(),
+            cal2.getTime()
+    );
+
+    return trips.stream().map(cd -> {
+        String code = cd.getMaChuyenTau();
+        String depart = cd.getThoiGianKhoiHanh() != null ? cd.getThoiGianKhoiHanh().format(HM) : "";
+        String arrive = cd.getThoiGianKetThuc() != null ? cd.getThoiGianKetThuc().format(HM) : "";
+        String coachLabel = (cd.getTenTau() != null && !cd.getTenTau().isBlank()) ? cd.getTenTau() : "Toa";
+        int carCount = 6; // TODO: thay bằng số toa thực tế nếu DB có
+        return new TrainInfo(code, depart, arrive, coachLabel, carCount);
+    }).collect(Collectors.toList());
+}
+
     }
+
 
     // ======================= PAGE 2 =======================
     private class TicketDetailPage extends JPanel {
@@ -621,16 +711,6 @@ public class BanVe extends JPanel {
                 else                     setBackground(new Color(238, 243, 255));
                 setForeground(isSelected() ? Color.WHITE : Color.BLACK);
         }); }
-    }
-
-    private List<TrainInfo> mockTrains() {
-        return Arrays.asList(
-                new TrainInfo("SE7", "06:00", "17:35", "Ngồi mềm điều hòa", 6),
-                new TrainInfo("SE5", "08:55", "20:20", "Ngồi mềm", 6),
-                new TrainInfo("SE9", "12:50", "03:40", "Ngồi mềm", 6),
-                new TrainInfo("SE3", "19:20", "05:15", "Ngồi mềm", 6),
-                new TrainInfo("SE1", "20:50", "05:45", "Ngồi mềm", 6)
-        );
     }
 
     private int estimatePrice(TrainInfo t, int car, int seat) {
