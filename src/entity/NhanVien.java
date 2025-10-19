@@ -1,4 +1,4 @@
-package model;
+package entity;
 
 public abstract class NhanVien {
     protected String maNV;

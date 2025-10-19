@@ -1,9 +1,9 @@
-package UI;
+package ui;
 
 import dao.TaiKhoan_Dao;
+import entity.NhanVien;
+import entity.TaiKhoan;
 import dao.NhanVien_Dao;
-import model.TaiKhoan;
-import model.NhanVien;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -152,7 +152,9 @@ lblForgot.setForeground(new Color(18, 74, 147));
             // lấy thông tin nhân viên (nếu cần hiển thị sâu hơn)
             NhanVien_Dao nvDao = new NhanVien_Dao();
             NhanVien nv = nvDao.findByUsername(u); // có thể null nếu chưa mapping
-            new MainFrame(tk).setVisible(true);
+            MainFrame mf = new MainFrame(tk);
+            mf.setExtendedState(JFrame.MAXIMIZED_BOTH);
+            mf.setVisible(true);
             dispose();
         } else {
             JOptionPane.showMessageDialog(this, "Sai tên đăng nhập hoặc tài khoản không hoạt động!", "Lỗi", JOptionPane.ERROR_MESSAGE);

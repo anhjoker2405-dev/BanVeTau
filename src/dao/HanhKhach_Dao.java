@@ -1,7 +1,7 @@
 package dao;
 
 import connectDB.ConnectDB;
-import model.HanhKhach;
+import entity.HanhKhach;
 
 import java.sql.*;
 import java.util.ArrayList;

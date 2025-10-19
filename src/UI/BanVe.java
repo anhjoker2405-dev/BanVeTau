@@ -1,4 +1,4 @@
-package UI;
+package ui;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -9,11 +9,14 @@ import java.util.*;
 import java.util.List;
 import java.text.NumberFormat;
 import com.toedter.calendar.JDateChooser;
-
 import dao.ChuyenDi_Dao;
-import model.ChuyenDi;
-import java.time.format.DateTimeFormatter;
-import java.util.stream.Collectors;
+import entity.ChuyenDi;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Date;
+import java.time.ZoneId;
+
 public class BanVe extends JPanel {
 
     private static final Color BLUE = new Color(47, 107, 255);
@@ -55,363 +58,75 @@ public class BanVe extends JPanel {
     }
 
     // ======================= PAGE 1 =======================
+    
     private class ChooseTripPage extends JPanel {
         private final CardLayout subCards = new CardLayout();
         private final JPanel subPanel = new JPanel(subCards);
 
-        private final JComboBox<String> cbFrom = new JComboBox<>(new String[]{
-                "Sài Gòn", "Biên Hòa", "Nha Trang", "Đà Nẵng", "Huế", "Vinh", "Hà Nội"
-        });
-        private final JComboBox<String> cbTo = new JComboBox<>(new String[]{
-                "Hà Nội", "Vinh", "Huế", "Đà Nẵng", "Nha Trang", "Biên Hòa", "Sài Gòn"
-        });
-        private final JRadioButton rdOneWay = new JRadioButton("Một chiều", true);
-        private final JRadioButton rdRound = new JRadioButton("Khứ hồi");
-        private final JDateChooser dcStart = new JDateChooser(new Date());
-        private final JDateChooser dcReturn = new JDateChooser(new Date());
-        private final JButton btnSearch = new JButton("Tìm kiếm");
-
-        private final JPanel trainsBar = new JPanel();
-        private final JPanel seatArea = new JPanel(new BorderLayout());
-        private final JButton btnChangeSearch = new JButton("Quay lại tìm chuyến");
-        private final JButton btnNext = new JButton("Tiếp tục");
+        private final SearchTripPanel searchPanel = new SearchTripPanel();
+        private final TripSelectPanel resultPanel = new TripSelectPanel();
 
         ChooseTripPage() {
             setOpaque(false);
             setLayout(new BorderLayout());
-
-            JPanel searchForm = buildSearchForm();
-            JPanel resultView = buildResultView();
-
-            subPanel.add(searchForm, "form");
-            subPanel.add(resultView, "result");
             add(subPanel, BorderLayout.CENTER);
 
-            subCards.show(subPanel, "form");
+            subPanel.add(searchPanel, "search");
+            subPanel.add(resultPanel, "result");
+            subCards.show(subPanel, "search");
 
-            // Tải danh sách ga từ CSDL
-            loadStationsFromDb();
+            // Load ga đi / ga đến từ SQL
+            try {
+                dao.ChuyenDi_Dao dao = new dao.ChuyenDi_Dao();
+                java.util.List<String> gaDi = dao.getAllGaDi();
+                java.util.List<String> gaDen = dao.getAllGaDen();
+                searchPanel.setStations(gaDi, gaDen);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                // fallback: để trống, người dùng tự gõ
+            }
 
-            rdOneWay.addActionListener(e -> dcReturn.setEnabled(false));
-            rdRound.addActionListener(e -> dcReturn.setEnabled(true));
+            // Sự kiện tìm kiếm
+            searchPanel.onSearch(e -> {
+                String gaDi = searchPanel.getGaDi();
+                String gaDen = searchPanel.getGaDen();
+                java.time.LocalDate ngay = searchPanel.getNgayDi();
 
-            btnSearch.addActionListener(e -> {
+                java.time.LocalDateTime from = ngay.atStartOfDay();
+                java.time.LocalDateTime to = ngay.atTime(23,59,59);
+
+                java.util.List<TripSelectPanel.Trip> trips = new java.util.ArrayList<>();
                 try {
-                    List<TrainInfo> data = searchTrainsFromDb();
-                    fillTrains(data);
-                    seatArea.removeAll();
-                    seatArea.add(centerMsg(data.isEmpty() ? "Không có chuyến phù hợp." : "Chọn một tàu để xem chỗ ngồi."), BorderLayout.CENTER);
-                    seatArea.revalidate(); seatArea.repaint();
-                    selections.clear();
-                    btnNext.setEnabled(false);
-                    subCards.show(subPanel, "result");
+                    dao.ChuyenDi_Dao dao = new dao.ChuyenDi_Dao();
+                    java.util.Date dFrom = java.util.Date.from(from.atZone(java.time.ZoneId.systemDefault()).toInstant());
+                    java.util.Date dTo   = java.util.Date.from(to.atZone(java.time.ZoneId.systemDefault()).toInstant());
+                    java.util.List<entity.ChuyenDi> rs = dao.search(null, gaDi, gaDen, dFrom, dTo);
+                    for (entity.ChuyenDi cd : rs) {
+                        trips.add(new TripSelectPanel.Trip(
+                            cd.getMaChuyenTau(),
+                            cd.getGaDi(),
+                            cd.getGaDen(),
+                            cd.getThoiGianKhoiHanh(),
+                            cd.getThoiGianKetThuc(),
+                            cd.getSoGheTrong(),
+                            0.0 // giá vé (chưa có trong DB)
+                        ));
+                    }
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(this,
-                        "Lỗi tìm chuyến từ CSDL:\n" + ex.getMessage(),
-                        "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    ex.printStackTrace();
                 }
+
+                resultPanel.setContext(gaDi, gaDen, ngay);
+                resultPanel.setTrips(trips);
+                resultPanel.onBack(evt -> subCards.show(subPanel, "search"));
+                resultPanel.onChooseTrip(evt -> {
+                    // Chuyển bước tiếp theo (chưa tích hợp chọn ghế)
+                    showStep(2);
+                });
+
+                subCards.show(subPanel, "result");
             });
-btnChangeSearch.addActionListener(e -> {
-                selections.clear();
-                subCards.show(subPanel, "form");
-
-            // Tải danh sách ga từ CSDL
-            loadStationsFromDb();
-            });
-
-            btnNext.addActionListener(e -> showStep(2));
         }
-
-        private JPanel buildSearchForm() {
-            JPanel wrap = new JPanel(new BorderLayout());
-            wrap.setOpaque(false);
-
-            JPanel form = new JPanel();
-            form.setOpaque(false);
-            form.setLayout(new BoxLayout(form, BoxLayout.Y_AXIS));
-            form.setBorder(new EmptyBorder(12, 12, 12, 12));
-            form.setPreferredSize(new Dimension(420, 10));
-
-            Dimension field = new Dimension(260, 32);
-            setFixedSize(cbFrom, field); setFixedSize(cbTo, field);
-            dcStart.setDateFormatString("dd/MM/yyyy");
-            dcReturn.setDateFormatString("dd/MM/yyyy");
-            dcReturn.setEnabled(false);
-            dcStart.setPreferredSize(field); dcReturn.setPreferredSize(field);
-
-            JLabel title = new JLabel("Tìm chuyến");
-            title.setForeground(new Color(18, 74, 147));
-            title.setFont(title.getFont().deriveFont(Font.BOLD, 18f));
-            title.setAlignmentX(Component.LEFT_ALIGNMENT);
-            form.add(title);
-            form.add(Box.createVerticalStrut(8));
-
-            form.add(labeled("Ga đi", cbFrom));
-            form.add(Box.createVerticalStrut(10));
-            form.add(labeled("Ga đến", cbTo));
-            form.add(Box.createVerticalStrut(12));
-
-            ButtonGroup g = new ButtonGroup(); g.add(rdOneWay); g.add(rdRound);
-            JPanel trip = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-            trip.setOpaque(false); rdOneWay.setOpaque(false); rdRound.setOpaque(false);
-            trip.add(rdOneWay); trip.add(rdRound);
-            form.add(labeled("Loại hành trình", trip));
-            form.add(Box.createVerticalStrut(12));
-
-            form.add(labeled("Ngày đi", dcStart));
-            form.add(Box.createVerticalStrut(10));
-            form.add(labeled("Ngày về", dcReturn));
-            form.add(Box.createVerticalStrut(14));
-
-            stylePrimary(btnSearch);
-            JPanel btnWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-            btnWrap.setOpaque(false);
-            btnWrap.add(btnSearch);
-            form.add(btnWrap);
-            form.add(Box.createVerticalStrut(10));
-
-            wrap.add(centerMsg("Nhập điều kiện tìm kiếm bên trái rồi bấm Tìm kiếm."), BorderLayout.CENTER);
-            wrap.add(form, BorderLayout.WEST);
-            return wrap;
-        }
-
-        private JPanel buildResultView() {
-            JPanel container = new JPanel(new BorderLayout());
-            container.setOpaque(false);
-
-            // Top-right actions
-            JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
-            actions.setOpaque(false);
-            actions.add(btnChangeSearch);
-            btnNext.setEnabled(false);
-            actions.add(btnNext);
-            container.add(actions, BorderLayout.NORTH);
-
-            // Train cards (scroll horizontal)
-            trainsBar.setOpaque(false);
-            trainsBar.setLayout(new BoxLayout(trainsBar, BoxLayout.X_AXIS));
-            trainsBar.setBorder(new EmptyBorder(0, 12, 8, 12));
-            JScrollPane trainScroll = new JScrollPane(trainsBar,
-                    ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER,
-                    ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-            trainScroll.setPreferredSize(new Dimension(10, 170)); // cao hơn để không bị "che"
-            trainScroll.setBorder(BorderFactory.createEmptyBorder());
-            trainScroll.getHorizontalScrollBar().setUnitIncrement(16);
-            container.add(trainScroll, BorderLayout.CENTER);
-
-            // Seat area + legend (bottom-right)
-            JPanel centerWrap = new JPanel(new BorderLayout());
-            centerWrap.setOpaque(false);
-            centerWrap.setBorder(new EmptyBorder(8, 0, 0, 0)); // tách khỏi train cards
-            seatArea.setOpaque(false);
-            seatArea.add(centerMsg("Chọn tàu ở trên để xem toa & chỗ ngồi."), BorderLayout.CENTER);
-            centerWrap.add(seatArea, BorderLayout.CENTER);
-
-            JPanel legendRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 8));
-            legendRight.setOpaque(false);
-            legendRight.add(tag(new Color(184, 231, 255), "Ghế Ngồi Mềm Điều Hòa"));
-            legendRight.add(tag(new Color(140, 200, 140), "Giường Nằm Khoang "));
-            legendRight.add(tag(new Color(255, 120, 120), "Ghế Đang Chọn"));
-            legendRight.add(tag(new Color(180, 180, 180), "Ghế Đã Đặt")); // thêm chú thích ghế đã đặt (booked)
-            centerWrap.add(legendRight, BorderLayout.SOUTH);
-
-            container.add(centerWrap, BorderLayout.SOUTH);
-            return container;
-        }
-
-        private void fillTrains(List<TrainInfo> trains) {
-            trainsBar.removeAll();
-            ButtonGroup g = new ButtonGroup();
-            for (TrainInfo t : trains) {
-                TrainCard card = new TrainCard(t, true);
-                card.addActionListener(e -> {
-                    currentTrain = t;
-                    currentCarIndex = 1;
-                    showTrain(t);
-                });
-                g.add(card.toggle);
-                trainsBar.add(card);
-                trainsBar.add(Box.createHorizontalStrut(12));
-            }
-            trainsBar.add(Box.createHorizontalStrut(4));
-            trainsBar.revalidate(); trainsBar.repaint();
-        }
-
-        private void showTrain(TrainInfo t) {
-            seatArea.removeAll();
-            seatArea.add(buildCarAndSeat(t), BorderLayout.CENTER);
-            seatArea.revalidate(); seatArea.repaint();
-            selections.clear();
-            btnNext.setEnabled(false);
-        }
-
-        private JPanel buildCarAndSeat(TrainInfo t) {
-            JPanel root = new JPanel(new BorderLayout());
-            root.setOpaque(false);
-
-            JPanel cars = new JPanel();
-            cars.setOpaque(false);
-            cars.setLayout(new BoxLayout(cars, BoxLayout.X_AXIS));
-            cars.setBorder(new EmptyBorder(10, 12, 10, 12));
-
-            CardLayout seatCards = new CardLayout();
-            JPanel seatCardsPanel = new JPanel(seatCards);
-            seatCardsPanel.setOpaque(false);
-
-            ButtonGroup g = new ButtonGroup();
-            int carCount = t.carCount;
-            for (int i = 1; i <= carCount; i++) {
-                final int carIndex = i;
-                JToggleButton btn = new JToggleButton("Toa " + i);
-                stylePill(btn);
-                g.add(btn);
-                cars.add(btn);
-                cars.add(Box.createHorizontalStrut(6));
-
-                JPanel seatMap = buildSeatMap(t, carIndex);
-                seatCardsPanel.add(seatMap, "car" + carIndex);
-
-                btn.addActionListener(e -> {
-                    currentCarIndex = carIndex;
-                    seatCards.show(seatCardsPanel, "car" + carIndex);
-                });
-                if (i == 1) btn.setSelected(true);
-            }
-
-            root.add(cars, BorderLayout.NORTH);
-            root.add(seatCardsPanel, BorderLayout.CENTER);
-            return root;
-        }
-
-        private JPanel buildSeatMap(TrainInfo t, int carIndex) {
-            int rows = 14;
-            JPanel map = new JPanel(new GridBagLayout());
-            map.setOpaque(false);
-            map.setBorder(new EmptyBorder(8, 12, 12, 12));
-
-            GridBagConstraints gc = new GridBagConstraints();
-            gc.insets = new Insets(6,6,6,6);
-            gc.fill = GridBagConstraints.BOTH;
-
-            int seatNo = 1;
-            Random rnd = new Random(1000 * carIndex + t.code.hashCode());
-
-            for (int r = 0; r < rows; r++) {
-                for (int c = 0; c < 2; c++) {
-                    gc.gridx = c; gc.gridy = r;
-                    SeatButton seat = makeSeat(seatNo++, t, carIndex, rnd);
-                    map.add(seat, gc);
-                }
-                gc.gridx = 2; gc.gridy = r;
-                JPanel aisle = new JPanel(); aisle.setOpaque(false); aisle.setPreferredSize(new Dimension(12, 36));
-                map.add(aisle, gc);
-                for (int c = 3; c < 5; c++) {
-                    gc.gridx = c; gc.gridy = r;
-                    SeatButton seat = makeSeat(seatNo++, t, carIndex, rnd);
-                    map.add(seat, gc);
-                }
-            }
-
-            JLabel lab = new JLabel("Toa số " + carIndex + " · " + t.coachLabel, SwingConstants.CENTER);
-            lab.setBorder(new EmptyBorder(8, 0, 8, 0));
-            lab.setFont(lab.getFont().deriveFont(Font.BOLD));
-            JPanel top = new JPanel(new BorderLayout()); top.setOpaque(false); top.add(lab, BorderLayout.CENTER);
-
-            JPanel wrap = new JPanel(new BorderLayout()); wrap.setOpaque(false);
-            wrap.add(top, BorderLayout.NORTH); wrap.add(map, BorderLayout.CENTER);
-            return wrap;
-        }
-
-        private SeatButton makeSeat(int number, TrainInfo t, int carIndex, Random rnd) {
-            SeatButton b = new SeatButton(String.valueOf(number));
-            boolean booked = rnd.nextInt(100) < 15;
-            b.setEnabled(!booked);
-            if (booked) {
-                b.setToolTipText("Ghế đã được đặt");
-            } else {
-                b.addActionListener(e -> {
-                    boolean selected = b.getModel().isSelected();
-                    if (selected) selections.add(new TicketSelection(t, carIndex, number, estimatePrice(t, carIndex, number)));
-                    else selections.removeIf(s -> s.train.code.equals(t.code) && s.car == carIndex && s.seat == number);
-                    btnNext.setEnabled(!selections.isEmpty());
-                });
-            }
-            return b;
-        }
-    
-// Định dạng giờ phút cho hiển thị
-private static final DateTimeFormatter HM = DateTimeFormatter.ofPattern("HH:mm");
-
-private void loadStationsFromDb() {
-    SwingUtilities.invokeLater(() -> {
-        try {
-            ChuyenDi_Dao dao = new ChuyenDi_Dao();
-            java.util.List<String> gaDi = dao.getAllGaDi();
-            java.util.List<String> gaDen = dao.getAllGaDen();
-
-            cbFrom.removeAllItems();
-            cbTo.removeAllItems();
-
-            cbFrom.addItem("Tất cả");
-            for (String s : gaDi) cbFrom.addItem(s);
-
-            cbTo.addItem("Tất cả");
-            for (String s : gaDen) cbTo.addItem(s);
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this,
-                    "Lỗi tải danh sách ga từ CSDL:\n" + ex.getMessage(),
-                    "Lỗi", JOptionPane.ERROR_MESSAGE);
-            // Fallback tối thiểu
-            if (cbFrom.getItemCount() == 0) {
-                for (String s : new String[]{"Sài Gòn","Biên Hòa","Nha Trang","Đà Nẵng","Huế","Vinh","Hà Nội"}) cbFrom.addItem(s);
-            }
-            if (cbTo.getItemCount() == 0) {
-                for (String s : new String[]{"Hà Nội","Vinh","Huế","Đà Nẵng","Nha Trang","Biên Hòa","Sài Gòn"}) cbTo.addItem(s);
-            }
-        }
-    });
-}
-
-private List<TrainInfo> searchTrainsFromDb() throws Exception {
-    String gaDi = (String) cbFrom.getSelectedItem();
-    String gaDen = (String) cbTo.getSelectedItem();
-
-    Date startDay = dcStart.getDate();
-    if (startDay == null) startDay = new Date();
-
-    Calendar cal1 = Calendar.getInstance();
-    cal1.setTime(startDay);
-    cal1.set(Calendar.HOUR_OF_DAY, 0);
-    cal1.set(Calendar.MINUTE, 0);
-    cal1.set(Calendar.SECOND, 0);
-    cal1.set(Calendar.MILLISECOND, 0);
-
-    Calendar cal2 = Calendar.getInstance();
-    cal2.setTime(startDay);
-    cal2.set(Calendar.HOUR_OF_DAY, 23);
-    cal2.set(Calendar.MINUTE, 59);
-    cal2.set(Calendar.SECOND, 59);
-    cal2.set(Calendar.MILLISECOND, 999);
-
-    ChuyenDi_Dao dao = new ChuyenDi_Dao();
-    List<ChuyenDi> trips = dao.search(
-            null,
-            gaDi,
-            gaDen,
-            cal1.getTime(),
-            cal2.getTime()
-    );
-
-    return trips.stream().map(cd -> {
-        String code = cd.getMaChuyenTau();
-        String depart = cd.getThoiGianKhoiHanh() != null ? cd.getThoiGianKhoiHanh().format(HM) : "";
-        String arrive = cd.getThoiGianKetThuc() != null ? cd.getThoiGianKetThuc().format(HM) : "";
-        String coachLabel = (cd.getTenTau() != null && !cd.getTenTau().isBlank()) ? cd.getTenTau() : "Toa";
-        int carCount = 6; // TODO: thay bằng số toa thực tế nếu DB có
-        return new TrainInfo(code, depart, arrive, coachLabel, carCount);
-    }).collect(Collectors.toList());
-}
-
     }
 
 
@@ -711,6 +426,16 @@ private List<TrainInfo> searchTrainsFromDb() throws Exception {
                 else                     setBackground(new Color(238, 243, 255));
                 setForeground(isSelected() ? Color.WHITE : Color.BLACK);
         }); }
+    }
+
+    private List<TrainInfo> mockTrains() {
+        return Arrays.asList(
+                new TrainInfo("SE7", "06:00", "17:35", "Ngồi mềm điều hòa", 6),
+                new TrainInfo("SE5", "08:55", "20:20", "Ngồi mềm", 6),
+                new TrainInfo("SE9", "12:50", "03:40", "Ngồi mềm", 6),
+                new TrainInfo("SE3", "19:20", "05:15", "Ngồi mềm", 6),
+                new TrainInfo("SE1", "20:50", "05:45", "Ngồi mềm", 6)
+        );
     }
 
     private int estimatePrice(TrainInfo t, int car, int seat) {

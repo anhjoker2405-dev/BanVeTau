@@ -1,7 +1,7 @@
 package dao;
 
 import connectDB.ConnectDB;
-import model.ChuyenDi;
+import entity.ChuyenDi;
 
 //import java.math.BigDecimal;
 import java.sql.*;
@@ -17,12 +17,24 @@ import java.util.List;
 public class ChuyenDi_Dao {
 
     public List<String> getAllGaDi() throws SQLException {
-        String sql = "SELECT DISTINCT gaDi FROM LichTrinh ORDER BY gaDi";
+        String sql =
+            "SELECT tenGa FROM (" +
+            "  SELECT N'Tất cả' AS tenGa " +
+            "  UNION ALL " +
+            "  SELECT DISTINCT g.tenGa " +
+            "  FROM LichTrinh lt JOIN Ga g ON g.maGa = lt.maGaDi" +
+            ") x ORDER BY tenGa";
         return loadStations(sql);
     }
 
     public List<String> getAllGaDen() throws SQLException {
-        String sql = "SELECT DISTINCT gaDen FROM LichTrinh ORDER BY gaDen";
+        String sql =
+            "SELECT tenGa FROM (" +
+            "  SELECT N'Tất cả' AS tenGa " +
+            "  UNION ALL " +
+            "  SELECT DISTINCT g.tenGa " +
+            "  FROM LichTrinh lt JOIN Ga g ON g.maGa = lt.maGaDen" +
+            ") x ORDER BY tenGa";
         return loadStations(sql);
     }
 
@@ -47,11 +59,13 @@ public class ChuyenDi_Dao {
                                  Date khoiHanhTu,
                                  Date khoiHanhDen) throws SQLException {
         StringBuilder sql = new StringBuilder(
-                "SELECT ct.maChuyenTau, lt.gaDi, lt.gaDen, " +
+                "SELECT ct.maChuyenTau, gd.tenGa AS gaDi, gn.tenGa AS gaDen, " +
                 "       ct.thoiGianKhoiHanh, ct.thoiGianKetThuc, " +
-                "       t.tenTau, ct.soGheTrong " +            // <- có khoảng trắng cuối dòng
+                "       t.tenTau, ct.soGheTrong " +
                 "FROM ChuyenTau ct " +
                 "JOIN LichTrinh lt ON ct.maLichTrinh = lt.maLichTrinh " +
+                "JOIN Ga gd ON gd.maGa = lt.maGaDi " +
+                "JOIN Ga gn ON gn.maGa = lt.maGaDen " +
                 "LEFT JOIN Tau t ON ct.maTau = t.maTau " +
                 "WHERE 1=1 "
         );
@@ -63,11 +77,11 @@ public class ChuyenDi_Dao {
             params.add('%' + maChuyen.trim() + '%');
         }
         if (gaDi != null && !gaDi.isBlank() && !"Tất cả".equalsIgnoreCase(gaDi)) {
-            sql.append(" AND lt.gaDi = ?");
+            sql.append(" AND gd.tenGa = ?");
             params.add(gaDi);
         }
         if (gaDen != null && !gaDen.isBlank() && !"Tất cả".equalsIgnoreCase(gaDen)) {
-            sql.append(" AND lt.gaDen = ?");
+            sql.append(" AND gn.tenGa = ?");
             params.add(gaDen);
         }
         if (khoiHanhTu != null) {

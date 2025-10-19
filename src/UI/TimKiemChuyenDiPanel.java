@@ -1,7 +1,7 @@
-package UI;
+package ui;
 
 import dao.ChuyenDi_Dao;
-import model.ChuyenDi;
+import entity.ChuyenDi;
 
 import com.toedter.calendar.JDateChooser;
 

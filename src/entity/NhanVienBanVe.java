@@ -1,4 +1,4 @@
-package model;
+package entity;
 
 public class NhanVienBanVe extends NhanVien {
     public NhanVienBanVe(String maNV, String tenNV, String soDienThoai, String email) {

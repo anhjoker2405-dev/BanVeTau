@@ -1,7 +1,7 @@
-package UI;
+package ui;
 
 import dao.NhanVien_Dao;
-import model.NhanVienThongTin;
+import entity.NhanVienThongTin;
 
 import javax.swing.*;
 import javax.swing.RowFilter;

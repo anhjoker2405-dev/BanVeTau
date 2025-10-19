@@ -1,7 +1,7 @@
-package UI;
+package ui;
 
 import dao.HanhKhach_Dao;
-import model.HanhKhach;
+import entity.HanhKhach;
 import connectDB.ConnectDB;
 
 import javax.swing.*;
