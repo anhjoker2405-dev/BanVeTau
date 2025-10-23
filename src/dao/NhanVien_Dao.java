@@ -17,16 +17,14 @@ public class NhanVien_Dao {
                 nv.tenNV,
                 nv.soDienThoai,
                 nv.email,
-                -- Lấy TÊN loại NV (nếu có), alias lại thành loaiNV để hợp với code cũ
-                COALESCE(lnv.tenLoaiNV, nv.maLoaiNV) AS loaiNV,
-                -- Lấy TÊN loại TK (nếu có), alias lại thành loaiTK để hợp với code cũ
-                COALESCE(ltk.tenLoaiTK, tk.maLoaiTK) AS loaiTK
+                COALESCE(lnv.moTa, nv.maLoaiNV) AS loaiNV,
+                COALESCE(ltk.moTa, tk.maLoaiTK) AS loaiTK
             FROM TaiKhoan tk
             JOIN NhanVien nv           ON nv.maNV     = tk.maNV
             LEFT JOIN LoaiNhanVien  lnv ON lnv.maLoaiNV = nv.maLoaiNV
             LEFT JOIN LoaiTaiKhoan  ltk ON ltk.maLoaiTK = tk.maLoaiTK
             WHERE tk.tenDangNhap = ?
-              AND LOWER(LTRIM(RTRIM(COALESCE(tk.trangThai, '')))) = 'Kich_Hoat'
+                AND UPPER(LTRIM(RTRIM(COALESCE(tk.trangThai, '')))) = 'Kich_Hoat'
         """;
         try (Connection con = ConnectDB.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -58,37 +56,70 @@ public class NhanVien_Dao {
 
     // =================== CRUD phục vụ màn quản lý nhân viên ===================
 
-    /** Chỉ hiện NV có TK active (hoặc chưa có TK) */
+    /**
+     * Danh sách nhân viên hiển thị trên màn quản lý:
+     * bao gồm nhân viên chưa có tài khoản và những tài khoản đang ở trạng thái "Kich_Hoat".
+     */
+    
     public List<NhanVienThongTin> findAll() throws SQLException {
         List<NhanVienThongTin> list = new ArrayList<>();
         String sql = """
-            SELECT 
-                nv.maNV, nv.tenNV, nv.ngaySinh, nv.soDienThoai, nv.email,
-                COALESCE(lnv.tenLoaiNV, nv.maLoaiNV) AS loaiNV
+            SELECT
+                nv.maNV,
+                nv.tenNV,
+                nv.ngaySinh,
+                nv.soDienThoai,
+                nv.email,
+                nv.cccd,
+                nv.ngayBatDauLamViec,
+                nv.maLoaiNV,
+                lnv.moTa AS moTaLoaiNV
+                     
             FROM NhanVien nv
+            LEFT JOIN TaiKhoan tk ON tk.maNV = nv.maNV
             LEFT JOIN LoaiNhanVien lnv ON lnv.maLoaiNV = nv.maLoaiNV
-            WHERE EXISTS (
-                SELECT 1 FROM TaiKhoan tk
-                WHERE tk.maNV = nv.maNV
-                  AND LOWER(LTRIM(RTRIM(COALESCE(tk.trangThai, '')))) = 'Kich_Hoat'
-            )
-            OR NOT EXISTS (SELECT 1 FROM TaiKhoan tk WHERE tk.maNV = nv.maNV)
+            WHERE tk.maNV IS NULL
+                OR UPPER(LTRIM(RTRIM(COALESCE(tk.trangThai, '')))) = 'Kich_Hoat'
             ORDER BY nv.maNV
         """;
         try (Connection con = ConnectDB.getConnection();
              PreparedStatement ps = con.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                Date ngaySinh = rs.getDate("ngaySinh");
-                LocalDate dob = (ngaySinh != null) ? ngaySinh.toLocalDate() : null;
-                list.add(new NhanVienThongTin(
+                LocalDate dob = toLocalDate(rs.getDate("ngaySinh"));
+                LocalDate startDate = toLocalDate(rs.getDate("ngayBatDauLamViec"));
+                String maLoaiNV = rs.getString("maLoaiNV");
+                String loaiNV = rs.getString("moTaLoaiNV");
+                if (loaiNV == null || loaiNV.isBlank()) {
+                    loaiNV = maLoaiNV;
+                }
+                NhanVienThongTin nv = new NhanVienThongTin(
                         rs.getString("maNV"),
                         rs.getString("tenNV"),
                         dob,
                         rs.getString("soDienThoai"),
                         rs.getString("email"),
-                        rs.getString("loaiNV")   // là TÊN loại NV (nếu có), alias sẵn
-                ));
+                        loaiNV,
+                        maLoaiNV,
+                        rs.getString("cccd"),
+                        startDate
+                );
+                list.add(nv);
+            }
+        }
+        return list;
+    }
+
+    public List<LoaiNhanVien> findAllLoaiNhanVien() throws SQLException {
+        List<LoaiNhanVien> list = new ArrayList<>();
+        String sql = "SELECT maLoaiNV, moTa FROM LoaiNhanVien ORDER BY moTa";
+        try (Connection con = ConnectDB.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                String ma = rs.getString("maLoaiNV");
+                String moTa = rs.getString("moTa");
+                list.add(new LoaiNhanVien(ma, moTa));
             }
         }
         return list;
@@ -130,12 +161,12 @@ public class NhanVien_Dao {
         return "NV001";
     }
 
-    /** 
-     * Lưu ý: nv.getLoaiNV() bây giờ phải là **mã loại NV** (maLoaiNV), 
-     * ví dụ 'LNV01'. Nếu bạn đang giữ tên loại, hãy map sang mã trước khi gọi insert.
-     */
+
     public int insert(NhanVienThongTin nv) throws SQLException {
-        String sql = "INSERT INTO NhanVien(maNV, tenNV, ngaySinh, soDienThoai, email, maLoaiNV) VALUES(?,?,?,?,?,?)";
+        String sql = """
+            INSERT INTO NhanVien(maNV, tenNV, ngaySinh, soDienThoai, email, cccd, maLoaiNV, ngayBatDauLamViec)
+            VALUES (?,?,?,?,?,?,?,?)
+        """;
         try (Connection con = ConnectDB.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, nv.getMaNV());
@@ -147,13 +178,32 @@ public class NhanVien_Dao {
             }
             ps.setString(4, nv.getSoDienThoai());
             ps.setString(5, nv.getEmail());
-            ps.setString(6, nv.getLoaiNV()); // expecting maLoaiNV
+            ps.setString(6, nv.getCccd());
+            String maLoaiNV = nv.getMaLoaiNV();
+            if (maLoaiNV == null || maLoaiNV.isBlank()) {
+                maLoaiNV = nv.getLoaiNV();
+            }
+            ps.setString(7, maLoaiNV);
+            if (nv.getNgayBatDauLamViec() != null) {
+                ps.setDate(8, Date.valueOf(nv.getNgayBatDauLamViec()));
+            } else {
+                ps.setNull(8, Types.DATE);
+            }
             return ps.executeUpdate();
         }
     }
 
     public int update(NhanVienThongTin nv) throws SQLException {
-        String sql = "UPDATE NhanVien SET tenNV=?, ngaySinh=?, soDienThoai=?, email=?, maLoaiNV=? WHERE maNV=?";
+        String sql = """
+            UPDATE NhanVien
+               SET tenNV = ?,
+                   ngaySinh = ?,
+                   soDienThoai = ?,
+                   email = ?,
+                   cccd = ?,
+                   maLoaiNV = ?
+             WHERE maNV = ?
+        """;
         try (Connection con = ConnectDB.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, nv.getTenNV());
@@ -164,8 +214,13 @@ public class NhanVien_Dao {
             }
             ps.setString(3, nv.getSoDienThoai());
             ps.setString(4, nv.getEmail());
-            ps.setString(5, nv.getLoaiNV()); // expecting maLoaiNV
-            ps.setString(6, nv.getMaNV());
+            ps.setString(5, nv.getCccd());
+            String maLoaiNV = nv.getMaLoaiNV();
+            if (maLoaiNV == null || maLoaiNV.isBlank()) {
+                maLoaiNV = nv.getLoaiNV();
+            }
+            ps.setString(6, maLoaiNV);
+            ps.setString(7, nv.getMaNV());
             return ps.executeUpdate();
         }
     }
@@ -174,14 +229,17 @@ public class NhanVien_Dao {
     public int deactivateById(String maNV) throws SQLException {
         String sql = """
             UPDATE TaiKhoan
-               SET trangThai = 'inactive'
+               SET trangThai = 'Vo_Hieu_Hoa'
              WHERE maNV = ?
-               AND LOWER(LTRIM(RTRIM(COALESCE(trangThai, '')))) <> 'inactive'
+               AND UPPER(LTRIM(RTRIM(COALESCE(trangThai, '')))) <> 'Vo_Hieu_Hoa'
         """;
         try (Connection con = ConnectDB.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, maNV);
             return ps.executeUpdate();
         }
+    }
+    private LocalDate toLocalDate(Date date) {
+        return date == null ? null : date.toLocalDate();
     }
 }

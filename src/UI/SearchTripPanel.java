@@ -4,16 +4,13 @@ import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
 import java.awt.event.*;
-import java.time.LocalDate;
-import java.util.List;
-import javax.swing.plaf.basic.BasicSplitPaneUI;
 import javax.swing.plaf.basic.BasicSplitPaneDivider;
+import javax.swing.plaf.basic.BasicSplitPaneUI;
 import com.toedter.calendar.JDateChooser;
-
 
 public class SearchTripPanel extends JPanel {
 
-    // === Exposed fields ===
+    // Exposed form fields for integration
     private JComboBox<String> cbGaDi;
     private JComboBox<String> cbGaDen;
     private JRadioButton rbMotChieu;
@@ -30,19 +27,24 @@ public class SearchTripPanel extends JPanel {
         // ===== Panel trái (40%) =====
         JPanel leftPanel = new JPanel(new GridBagLayout());
         leftPanel.setBackground(Color.WHITE);
-        leftPanel.setBorder(BorderFactory.createTitledBorder(
-                BorderFactory.createLineBorder(new Color(200, 220, 255)),
-                "THÔNG TIN HÀNH TRÌNH",
-                TitledBorder.LEFT,
-                TitledBorder.TOP,
-                new Font("Segoe UI", Font.BOLD, 18),
-                new Color(70, 130, 180)
-        ));
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(8, 8, 8, 8);
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.anchor = GridBagConstraints.WEST;
+
+        // Tiêu đề khung
+        leftPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createTitledBorder(
+                        BorderFactory.createLineBorder(new Color(200, 220, 255)),
+                        "THÔNG TIN HÀNH TRÌNH",
+                        TitledBorder.LEFT,
+                        TitledBorder.TOP,
+                        new Font("Segoe UI", Font.BOLD, 16),
+                        new Color(70, 130, 180)
+                ),
+                new EmptyBorder(20, 20, 20, 40)
+        ));
 
         // ========== Ga đi ==========
         gbc.gridx = 0; gbc.gridy = 0;
@@ -51,9 +53,9 @@ public class SearchTripPanel extends JPanel {
         leftPanel.add(lblGaDi, gbc);
 
         gbc.gridx = 1;
-        cbGaDi = new JComboBox<>();
-        cbGaDi.setFont(new Font("Segoe UI", Font.PLAIN, 16));
-        cbGaDi.setPreferredSize(new Dimension(160, 34));
+        cbGaDi = new JComboBox<>(new String[]{"An Hòa", "Hà Nội", "Đà Nẵng", "Sài Gòn"});
+        styleField(cbGaDi);
+        cbGaDi.setPreferredSize(new Dimension(160, 32));
         leftPanel.add(cbGaDi, gbc);
 
         gbc.gridx = 2;
@@ -67,9 +69,9 @@ public class SearchTripPanel extends JPanel {
         leftPanel.add(lblGaDen, gbc);
 
         gbc.gridx = 1;
-        cbGaDen = new JComboBox<>();
-        cbGaDen.setFont(new Font("Segoe UI", Font.PLAIN, 16));
-        cbGaDen.setPreferredSize(new Dimension(160, 34));
+        cbGaDen = new JComboBox<>(new String[]{"An Hòa", "Hà Nội", "Đà Nẵng", "Sài Gòn"});
+        styleField(cbGaDen);
+        cbGaDen.setPreferredSize(new Dimension(160, 32));
         leftPanel.add(cbGaDen, gbc);
 
         gbc.gridx = 2;
@@ -84,13 +86,14 @@ public class SearchTripPanel extends JPanel {
 
         gbc.gridx = 1;
         rbMotChieu = new JRadioButton("Một Chiều");
-        rbKhuHoi = new JRadioButton("Khứ Hồi");
+        rbKhuHoi    = new JRadioButton("Khứ Hồi");
+        rbMotChieu.setFont(rbMotChieu.getFont().deriveFont(16f));
+        rbKhuHoi.setFont(rbKhuHoi.getFont().deriveFont(16f));
         rbMotChieu.setBackground(Color.WHITE);
         rbKhuHoi.setBackground(Color.WHITE);
         rbMotChieu.setForeground(new Color(60, 120, 200));
         rbKhuHoi.setForeground(new Color(60, 120, 200));
         rbMotChieu.setSelected(true);
-
         ButtonGroup bgLoaiVe = new ButtonGroup();
         bgLoaiVe.add(rbMotChieu);
         bgLoaiVe.add(rbKhuHoi);
@@ -109,10 +112,9 @@ public class SearchTripPanel extends JPanel {
 
         gbc.gridx = 1;
         dcNgayDi = new JDateChooser();
-        dcNgayDi.setDate(java.sql.Date.valueOf(LocalDate.now()));
         dcNgayDi.setDateFormatString("yyyy-MM-dd");
-        dcNgayDi.setFont(new Font("Segoe UI", Font.PLAIN, 16));
-        dcNgayDi.setPreferredSize(new Dimension(160, 34));
+        dcNgayDi.setDate(new java.util.Date());
+        dcNgayDi.setPreferredSize(new Dimension(160, 32));
         leftPanel.add(dcNgayDi, gbc);
 
         // ========== Ngày về ==========
@@ -123,11 +125,10 @@ public class SearchTripPanel extends JPanel {
 
         gbc.gridx = 1;
         dcNgayVe = new JDateChooser();
-        dcNgayVe.setDate(java.sql.Date.valueOf(LocalDate.now()));
         dcNgayVe.setDateFormatString("yyyy-MM-dd");
-        dcNgayVe.setFont(new Font("Segoe UI", Font.PLAIN, 16));
-        dcNgayVe.setPreferredSize(new Dimension(160, 34));
+        dcNgayVe.setDate(new java.util.Date());
         dcNgayVe.setEnabled(false);
+        dcNgayVe.setPreferredSize(new Dimension(160, 32));
         leftPanel.add(dcNgayVe, gbc);
 
         // Bật/tắt ngày về khi chọn loại vé
@@ -137,8 +138,8 @@ public class SearchTripPanel extends JPanel {
         // ========== Nút tìm kiếm ==========
         gbc.gridx = 1; gbc.gridy++;
         btnTimKiem = new JButton("Tìm Kiếm");
-        btnTimKiem.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        btnTimKiem.setPreferredSize(new Dimension(160, 36));
+        btnTimKiem.setFont(btnTimKiem.getFont().deriveFont(Font.BOLD, 16f));
+        btnTimKiem.setFocusable(false);
         btnTimKiem.setBackground(new Color(90, 160, 230));
         btnTimKiem.setForeground(Color.WHITE);
         btnTimKiem.setFocusPainted(false);
@@ -147,89 +148,49 @@ public class SearchTripPanel extends JPanel {
         // ===== Panel phải (60%) =====
         JPanel rightPanel = new JPanel(new BorderLayout());
         rightPanel.setBackground(Color.WHITE);
-        rightPanel.setBorder(new LineBorder(new Color(220, 220, 220)));
+        rightPanel.setBorder(new CompoundBorder(
+                new EmptyBorder(10, 10, 10, 10),
+                new LineBorder(new Color(220, 220, 220))
+        ));
 
         JLabel mapLabel = new JLabel("", JLabel.CENTER);
         rightPanel.add(mapLabel, BorderLayout.CENTER);
 
         // Load ảnh gốc (tự động scale)
         java.net.URL mapUrl = getClass().getResource("/img/map.jpg");
-
         if (mapUrl != null) {
             ImageIcon originalMap = new ImageIcon(mapUrl);
             Image originalImage = originalMap.getImage();
-
             rightPanel.addComponentListener(new ComponentAdapter() {
-                @Override
-                public void componentResized(ComponentEvent e) {
-                    int w = rightPanel.getWidth();
-                    int h = rightPanel.getHeight();
+                @Override public void componentResized(ComponentEvent e) {
+                    int w = rightPanel.getWidth(), h = rightPanel.getHeight();
                     if (w <= 0 || h <= 0) return;
-
                     double imgRatio = (double) originalImage.getWidth(null) / originalImage.getHeight(null);
                     double panelRatio = (double) w / h;
-
-                    int newW = w;
-                    int newH = h;
-                    if (panelRatio > imgRatio) newW = (int) (h * imgRatio);
-                    else newH = (int) (w / imgRatio);
-
+                    int newW = panelRatio > imgRatio ? (int) (h * imgRatio) : w;
+                    int newH = panelRatio > imgRatio ? h : (int) (w / imgRatio);
                     Image scaled = originalImage.getScaledInstance(newW, newH, Image.SCALE_SMOOTH);
                     mapLabel.setIcon(new ImageIcon(scaled));
                 }
             });
         }
 
-        // ===== Split theo tỷ lệ 40% - 60% =====
-        
-        // Padding cho panel trái (tạo khoảng cách giữa 2 panel)
-        leftPanel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createTitledBorder(
-                        BorderFactory.createLineBorder(new Color(200, 220, 255)),
-                        "THÔNG TIN HÀNH TRÌNH",
-                        TitledBorder.LEFT,
-                        TitledBorder.TOP,
-                        new Font("Segoe UI", Font.BOLD, 18),
-                        new Color(70, 130, 180)
-                ),
-                new EmptyBorder(20, 20, 20, 40) // trái, trên, phải, dưới → cách map 40px
-        ));
-
-        // Padding nhẹ cho panel phải để không dính sát mép khung
-        rightPanel.setBorder(new CompoundBorder(
-                new EmptyBorder(10, 10, 10, 10),
-                new LineBorder(new Color(220, 220, 220))
-        ));
-
-        // Tạo SplitPane 40/60
+        // ===== Split 40/60 =====
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftPanel, rightPanel);
         splitPane.setContinuousLayout(true);
         splitPane.setEnabled(false);
         splitPane.setBorder(null);
-        splitPane.setDividerSize(0); // ẩn hoàn toàn đường chia
-
-        // Loại bỏ divider mặc định (ẩn đường đen)
-        splitPane.setUI(new javax.swing.plaf.basic.BasicSplitPaneUI() {
-            @Override
-            public BasicSplitPaneDivider createDefaultDivider() {
+        splitPane.setDividerSize(0);
+        splitPane.setUI(new BasicSplitPaneUI() {
+            @Override public BasicSplitPaneDivider createDefaultDivider() {
                 return new BasicSplitPaneDivider(this) {
-                    @Override
-                    public void paint(Graphics g) {
-                        // Không vẽ divider => không còn đường đen
-                    }
+                    @Override public void paint(Graphics g) { /* ẩn divider */ }
                 };
             }
         });
-
-        // Giữ tỉ lệ 40/60 khi resize
         bindProportionalDivider(splitPane, 0.4);
         splitPane.setResizeWeight(0.0);
-        
-        // Giữ chiều cao 2 panel bằng nhau
-        splitPane.setResizeWeight(0.0);
-        splitPane.setOneTouchExpandable(false);
 
-        // Thêm vào khung chính
         add(splitPane, BorderLayout.CENTER);
     }
 
@@ -243,7 +204,6 @@ public class SearchTripPanel extends JPanel {
                 });
             }
         });
-
         sp.addComponentListener(new ComponentAdapter() {
             @Override public void componentResized(ComponentEvent e) {
                 int total = sp.getWidth() - sp.getDividerSize();
@@ -256,21 +216,15 @@ public class SearchTripPanel extends JPanel {
     private JLabel createScaledIcon(String path, int width, int height) {
         ImageIcon icon = safeLoadImage(path, width, height);
         JLabel lbl = new JLabel();
-        if (icon != null)
-            lbl.setIcon(icon);
-        else
-            lbl.setText("🚆");
+        if (icon != null) lbl.setIcon(icon); else lbl.setText("🚆");
         return lbl;
     }
 
-    /** Load ảnh an toàn (tránh NullPointerException) */
+    /** Load ảnh an toàn */
     private ImageIcon safeLoadImage(String path, int width, int height) {
         try {
             java.net.URL url = getClass().getResource(path);
-            if (url == null) {
-                System.err.println("️Không tìm thấy ảnh: " + path);
-                return null;
-            }
+            if (url == null) return null;
             ImageIcon raw = new ImageIcon(url);
             Image scaled = raw.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
             return new ImageIcon(scaled);
@@ -285,40 +239,43 @@ public class SearchTripPanel extends JPanel {
         lbl.setFont(new Font("Segoe UI", Font.BOLD, 16));
         lbl.setForeground(new Color(60, 120, 200));
     }
+    /** Style chung cho input (combo, text, date…) */
+    private void styleField(JComponent c) {
+        c.setFont(c.getFont().deriveFont(16f));
+        c.setForeground(new Color(35, 48, 74));
+    }
 
-    // ======== MAIN TEST ========
+    // ===== Public API =====
+    public void setStations(java.util.List<String> gaDi, java.util.List<String> gaDen) {
+        if (gaDi != null) { cbGaDi.removeAllItems(); for (String s : gaDi) cbGaDi.addItem(s); }
+        if (gaDen != null) { cbGaDen.removeAllItems(); for (String s : gaDen) cbGaDen.addItem(s); }
+    }
+    public String getGaDi() { return cbGaDi.getSelectedItem() == null ? null : cbGaDi.getSelectedItem().toString(); }
+    public String getGaDen() { return cbGaDen.getSelectedItem() == null ? null : cbGaDen.getSelectedItem().toString(); }
+    public boolean isKhuHoi() { return rbKhuHoi.isSelected(); }
+
+    public java.time.LocalDate getNgayDi() {
+        java.util.Date d = dcNgayDi.getDate();
+        if (d == null) return java.time.LocalDate.now();
+        return d.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+    }
+    public java.time.LocalDate getNgayVe() {
+        java.util.Date d = dcNgayVe.getDate();
+        if (d == null) return getNgayDi();
+        return d.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+    }
+
+    public void onSearch(java.awt.event.ActionListener l) { btnTimKiem.addActionListener(l); }
+
+    // Demo nhanh
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             JFrame f = new JFrame("Bán Vé - Chọn Chuyến Đi");
             f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
-            // mở vừa màn hình ngay khi khởi động
-            f.setExtendedState(JFrame.MAXIMIZED_BOTH);   // ⬅️ quan trọng
-            f.setLocationByPlatform(true);               // để hệ điều hành chọn vị trí hợp lý
+            f.setExtendedState(JFrame.MAXIMIZED_BOTH);
+            f.setLocationByPlatform(true);
             f.setContentPane(new SearchTripPanel());
             f.setVisible(true);
         });
     }
-
-    // ===== Public API for integration with BanVe =====
-    public void setStations(List<String> gaDiList, List<String> gaDenList) {
-        DefaultComboBoxModel<String> m1 = new DefaultComboBoxModel<>();
-        if (gaDiList != null) for (String s : gaDiList) m1.addElement(s);
-        cbGaDi.setModel(m1);
-
-        DefaultComboBoxModel<String> m2 = new DefaultComboBoxModel<>();
-        if (gaDenList != null) for (String s : gaDenList) m2.addElement(s);
-        cbGaDen.setModel(m2);
-    }
-
-    public String getGaDi() { Object v = cbGaDi.getSelectedItem(); return v==null? null : v.toString(); }
-    public String getGaDen() { Object v = cbGaDen.getSelectedItem(); return v==null? null : v.toString(); }
-    public LocalDate getNgayDi() {
-        try {
-            java.util.Date d = dcNgayDi.getDate();
-            return d != null ? d.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate() : LocalDate.now();
-        } catch (Exception e) { return LocalDate.now(); }
-    }
-    public void onSearch(java.awt.event.ActionListener al) { btnTimKiem.addActionListener(al); }
-
 }

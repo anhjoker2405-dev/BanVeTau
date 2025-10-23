@@ -5,7 +5,9 @@ import entity.HanhKhach;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class HanhKhach_Dao {
 
@@ -13,18 +15,17 @@ public class HanhKhach_Dao {
 
     public List<HanhKhach> findAll() throws SQLException {
         List<HanhKhach> list = new ArrayList<>();
-        String sql = "SELECT maHK, tenHK, soDienThoai, cccd, gioiTinh FROM HanhKhach ORDER BY maHK";
+        String sql = """
+                SELECT hk.maHK, hk.tenHK, hk.soDienThoai, hk.cccd, hk.maGT, gt.tenGT
+                FROM HanhKhach hk
+                LEFT JOIN GioiTinh gt ON hk.maGT = gt.maGT
+                ORDER BY hk.maHK
+                """;
         try (Connection con = ConnectDB.getConnection();
              PreparedStatement ps = con.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                list.add(new HanhKhach(
-                        rs.getString("maHK"),
-                        rs.getString("tenHK"),
-                        rs.getString("soDienThoai"),
-                        rs.getString("cccd"),
-                        rs.getString("gioiTinh")
-                ));
+                list.add(mapRow(rs));
             }
         }
         return list;
@@ -57,26 +58,26 @@ public class HanhKhach_Dao {
     }
 
     public int insert(HanhKhach hk) throws SQLException {
-        String sql = "INSERT INTO HanhKhach(maHK, tenHK, soDienThoai, cccd, gioiTinh) VALUES(?,?,?,?,?)";
+        String sql = "INSERT INTO HanhKhach(maHK, tenHK, soDienThoai, cccd, maGT) VALUES(?,?,?,?,?)";
         try (Connection con = ConnectDB.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, hk.getMaHK());
             ps.setString(2, hk.getTenHK());
             ps.setString(3, hk.getSoDienThoai());
             ps.setString(4, hk.getCccd());
-            ps.setString(5, hk.getGioiTinh());
+            ps.setString(5, hk.getMaGT());
             return ps.executeUpdate();
         }
     }
 
     public int update(HanhKhach hk) throws SQLException {
-        String sql = "UPDATE HanhKhach SET tenHK=?, soDienThoai=?, cccd=?, gioiTinh=? WHERE maHK=?";
+        String sql = "UPDATE HanhKhach SET tenHK=?, soDienThoai=?, cccd=?, maGT=? WHERE maHK=?";
         try (Connection con = ConnectDB.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, hk.getTenHK());
             ps.setString(2, hk.getSoDienThoai());
             ps.setString(3, hk.getCccd());
-            ps.setString(4, hk.getGioiTinh());
+            ps.setString(4, hk.getMaGT());
             ps.setString(5, hk.getMaHK());
             return ps.executeUpdate();
         }
@@ -93,11 +94,13 @@ public class HanhKhach_Dao {
 
     public List<HanhKhach> search(String keyword) throws SQLException {
         List<HanhKhach> list = new ArrayList<>();
-        String sql =
-            "SELECT maHK, tenHK, soDienThoai, cccd, gioiTinh " +
-            "FROM HanhKhach " +
-            "WHERE maHK LIKE ? OR tenHK LIKE ? OR soDienThoai LIKE ? OR cccd LIKE ? " +
-            "ORDER BY maHK";
+        String sql = """
+                SELECT hk.maHK, hk.tenHK, hk.soDienThoai, hk.cccd, hk.maGT, gt.tenGT
+                FROM HanhKhach hk
+                LEFT JOIN GioiTinh gt ON hk.maGT = gt.maGT
+                WHERE hk.maHK LIKE ? OR hk.tenHK LIKE ? OR hk.soDienThoai LIKE ? OR hk.cccd LIKE ?
+                ORDER BY hk.maHK
+                """;
         try (Connection con = ConnectDB.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             String kw = "%" + keyword.trim() + "%";
@@ -107,13 +110,7 @@ public class HanhKhach_Dao {
             ps.setString(4, kw);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    list.add(new HanhKhach(
-                            rs.getString("maHK"),
-                            rs.getString("tenHK"),
-                            rs.getString("soDienThoai"),
-                            rs.getString("cccd"),
-                            rs.getString("gioiTinh")
-                    ));
+                    list.add(mapRow(rs));
                 }
             }
         }
@@ -137,7 +134,7 @@ public class HanhKhach_Dao {
      * Upsert theo CCCD: nếu đã có → trả về maHK hiện có; nếu chưa có → tạo mới và trả về maHK mới.
      * Toàn bộ chạy trong 1 transaction.
      */
-    public String upsertAndGetMaHK(String tenHK, String sdt, String cccd, String gioiTinh) throws SQLException {
+    public String upsertAndGetMaHK(String tenHK, String sdt, String cccd, String maGT) throws SQLException {
         try (Connection cn = ConnectDB.getConnection()) {
             cn.setAutoCommit(false);
             try {
@@ -156,13 +153,13 @@ public class HanhKhach_Dao {
 
                 // 2) Chưa có → phát sinh mã & insert
                 String maHKMoi = nextId(cn);
-                String ins = "INSERT INTO HanhKhach(maHK, tenHK, soDienThoai, cccd, gioiTinh) VALUES(?,?,?,?,?)";
+                String ins = "INSERT INTO HanhKhach(maHK, tenHK, soDienThoai, cccd, maGT) VALUES(?,?,?,?,?)";
                 try (PreparedStatement ps = cn.prepareStatement(ins)) {
                     ps.setString(1, maHKMoi);
                     ps.setString(2, tenHK);
                     ps.setString(3, sdt);
                     ps.setString(4, cccd);
-                    ps.setString(5, gioiTinh);
+                    ps.setString(5, maGT);
                     ps.executeUpdate();
                 }
 
@@ -175,5 +172,35 @@ public class HanhKhach_Dao {
                 cn.setAutoCommit(true);
             }
         }
+    }
+    
+    public String generateNextId() throws SQLException {
+        try (Connection cn = ConnectDB.getConnection()) {
+            return nextId(cn);
+        }
+    }
+
+    public Map<String, String> findAllGioiTinh() throws SQLException {
+        Map<String, String> map = new LinkedHashMap<>();
+        String sql = "SELECT maGT, tenGT FROM GioiTinh ORDER BY maGT";
+        try (Connection con = ConnectDB.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                map.put(rs.getString("maGT"), rs.getString("tenGT"));
+            }
+        }
+        return map;
+    }
+
+    private HanhKhach mapRow(ResultSet rs) throws SQLException {
+        return new HanhKhach(
+                rs.getString("maHK"),
+                rs.getString("tenHK"),
+                rs.getString("soDienThoai"),
+                rs.getString("cccd"),
+                rs.getString("maGT"),
+                rs.getString("tenGT")
+        );
     }
 }

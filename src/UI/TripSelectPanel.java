@@ -40,9 +40,7 @@ public class TripSelectPanel extends JPanel {
         add(buildCenter(), BorderLayout.CENTER);
         add(buildFooter(), BorderLayout.SOUTH);
 
-        // demo dữ liệu
-        setContext("An Hòa", "Bảo Sơn", LocalDate.of(2025,6,14));
-        setTrips(sampleTrips());
+        // (demo removed) - context & trips will be set from BanVe integration
     }
 
     // ---------- Top: stepper + stripe route ----------

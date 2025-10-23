@@ -1,9 +1,9 @@
 package ui;
 
 import dao.TaiKhoan_Dao;
-import entity.NhanVien;
-import entity.TaiKhoan;
 import dao.NhanVien_Dao;
+import entity.TaiKhoan;
+import entity.NhanVien;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -24,6 +24,7 @@ public class LoginFrame extends JFrame {
         setTitle("Hệ thống bán vé tàu đường sắt Sài Gòn");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(960, 600);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setLocationRelativeTo(null);
 
         defaultEchoChar = txtPass.getEchoChar();
@@ -152,9 +153,7 @@ lblForgot.setForeground(new Color(18, 74, 147));
             // lấy thông tin nhân viên (nếu cần hiển thị sâu hơn)
             NhanVien_Dao nvDao = new NhanVien_Dao();
             NhanVien nv = nvDao.findByUsername(u); // có thể null nếu chưa mapping
-            MainFrame mf = new MainFrame(tk);
-            mf.setExtendedState(JFrame.MAXIMIZED_BOTH);
-            mf.setVisible(true);
+            new MainFrame(tk).setVisible(true);
             dispose();
         } else {
             JOptionPane.showMessageDialog(this, "Sai tên đăng nhập hoặc tài khoản không hoạt động!", "Lỗi", JOptionPane.ERROR_MESSAGE);

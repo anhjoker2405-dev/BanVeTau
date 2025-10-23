@@ -5,7 +5,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class ConnectDB {
-    private static final String URL = "jdbc:sqlserver://localhost:1433;databasename=RailwayBooking;encrypt=false;";
+    private static final String URL = "jdbc:sqlserver://localhost:1433;databaseName=RailwayBooking;encrypt=false;";
 
     private static final String USER = "sa";
     private static final String PASSWORD = "123";

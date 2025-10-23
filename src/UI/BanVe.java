@@ -11,6 +11,7 @@ import java.text.NumberFormat;
 import com.toedter.calendar.JDateChooser;
 import dao.ChuyenDi_Dao;
 import entity.ChuyenDi;
+import entity.ChuyenTau;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -100,8 +101,8 @@ public class BanVe extends JPanel {
                     dao.ChuyenDi_Dao dao = new dao.ChuyenDi_Dao();
                     java.util.Date dFrom = java.util.Date.from(from.atZone(java.time.ZoneId.systemDefault()).toInstant());
                     java.util.Date dTo   = java.util.Date.from(to.atZone(java.time.ZoneId.systemDefault()).toInstant());
-                    java.util.List<entity.ChuyenDi> rs = dao.search(null, gaDi, gaDen, dFrom, dTo);
-                    for (entity.ChuyenDi cd : rs) {
+                    List<ChuyenTau> rs = dao.search(null, gaDi, gaDen, dFrom, dTo);
+                    for (ChuyenTau cd : rs) {
                         trips.add(new TripSelectPanel.Trip(
                             cd.getMaChuyenTau(),
                             cd.getGaDi(),

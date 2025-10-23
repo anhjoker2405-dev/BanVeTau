@@ -1,40 +1,23 @@
 package dao;
 
 import connectDB.ConnectDB;
-import entity.ChuyenDi;
+import entity.ChuyenTau;
 
-//import java.math.BigDecimal;
 import java.sql.*;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
-/**
- * tra cứu dữ liệu chuyến tàu.
- */
 public class ChuyenDi_Dao {
 
     public List<String> getAllGaDi() throws SQLException {
-        String sql =
-            "SELECT tenGa FROM (" +
-            "  SELECT N'Tất cả' AS tenGa " +
-            "  UNION ALL " +
-            "  SELECT DISTINCT g.tenGa " +
-            "  FROM LichTrinh lt JOIN Ga g ON g.maGa = lt.maGaDi" +
-            ") x ORDER BY tenGa";
+        String sql = "SELECT tenGa FROM Ga ORDER BY tenGa";
         return loadStations(sql);
     }
 
     public List<String> getAllGaDen() throws SQLException {
-        String sql =
-            "SELECT tenGa FROM (" +
-            "  SELECT N'Tất cả' AS tenGa " +
-            "  UNION ALL " +
-            "  SELECT DISTINCT g.tenGa " +
-            "  FROM LichTrinh lt JOIN Ga g ON g.maGa = lt.maGaDen" +
-            ") x ORDER BY tenGa";
+        String sql = "SELECT tenGa FROM Ga ORDER BY tenGa";
         return loadStations(sql);
     }
 
@@ -45,93 +28,89 @@ public class ChuyenDi_Dao {
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 String value = rs.getString(1);
-                if (value != null && !value.isBlank()) {
-                    list.add(value.trim());
-                }
+                if (value != null && !value.isBlank()) list.add(value.trim());
             }
         }
         return list;
     }
 
-    public List<ChuyenDi> search(String maChuyen,
+    private static boolean isAll(String s) {
+        if (s == null) return true;
+        String norm = s.trim().toLowerCase();
+        // chấp nhận vài biến thể phổ biến
+        return norm.isBlank() || "tất cả".equals(norm) || "tat ca".equals(norm) || "all".equals(norm);
+    }
+
+    // Nếu chỉ có date (00:00), đẩy tới 23:59:59.997 để bao phủ cả ngày (SQL Server millisecond)
+    private static Timestamp endOfDay(Timestamp ts) {
+        if (ts == null) return null;
+        Calendar cal = Calendar.getInstance();
+        cal.setTimeInMillis(ts.getTime());
+        cal.set(Calendar.HOUR_OF_DAY, 23);
+        cal.set(Calendar.MINUTE, 59);
+        cal.set(Calendar.SECOND, 59);
+        cal.set(Calendar.MILLISECOND, 997);
+        return new Timestamp(cal.getTimeInMillis());
+    }
+
+    public List<ChuyenTau> search(String maChuyen,
                                  String gaDi,
                                  String gaDen,
                                  Date khoiHanhTu,
-                                 Date khoiHanhDen) throws SQLException {
+                                 Date khoiHanhDen /* không còn dùng */) throws SQLException {
+
         StringBuilder sql = new StringBuilder(
-                "SELECT ct.maChuyenTau, gd.tenGa AS gaDi, gn.tenGa AS gaDen, " +
-                "       ct.thoiGianKhoiHanh, ct.thoiGianKetThuc, " +
-                "       t.tenTau, ct.soGheTrong " +
-                "FROM ChuyenTau ct " +
-                "JOIN LichTrinh lt ON ct.maLichTrinh = lt.maLichTrinh " +
-                "JOIN Ga gd ON gd.maGa = lt.maGaDi " +
-                "JOIN Ga gn ON gn.maGa = lt.maGaDen " +
-                "LEFT JOIN Tau t ON ct.maTau = t.maTau " +
-                "WHERE 1=1 "
+            "SELECT ct.maChuyenTau, gDi.tenGa AS gaDi, gDen.tenGa AS gaDen, " +
+            "       ct.thoiGianKhoiHanh, ct.thoiGianKetThuc, t.tenTau, ct.soGheTrong " +
+            "FROM ChuyenTau ct " +
+            "JOIN LichTrinh lt ON lt.maLichTrinh = ct.maLichTrinh " +
+            "JOIN Ga gDi  ON gDi.maGa  = lt.maGaDi " +
+            "JOIN Ga gDen ON gDen.maGa = lt.maGaDen " +
+            "JOIN Tau t   ON t.maTau   = ct.maTau " +
+            "WHERE 1=1 "
         );
 
         List<Object> params = new ArrayList<>();
 
         if (maChuyen != null && !maChuyen.isBlank()) {
             sql.append(" AND ct.maChuyenTau LIKE ?");
-            params.add('%' + maChuyen.trim() + '%');
+            params.add("%" + maChuyen.trim() + "%");
         }
-        if (gaDi != null && !gaDi.isBlank() && !"Tất cả".equalsIgnoreCase(gaDi)) {
-            sql.append(" AND gd.tenGa = ?");
-            params.add(gaDi);
+        if (!isAll(gaDi)) {
+            sql.append(" AND gDi.tenGa = ?");
+            params.add(gaDi.trim());
         }
-        if (gaDen != null && !gaDen.isBlank() && !"Tất cả".equalsIgnoreCase(gaDen)) {
-            sql.append(" AND gn.tenGa = ?");
-            params.add(gaDen);
+        if (!isAll(gaDen)) {
+            sql.append(" AND gDen.tenGa = ?");
+            params.add(gaDen.trim());
         }
         if (khoiHanhTu != null) {
             sql.append(" AND ct.thoiGianKhoiHanh >= ?");
+        sql.append(" AND ct.thoiGianKhoiHanh <= ?");
             params.add(new Timestamp(khoiHanhTu.getTime()));
+        params.add(endOfDay(new Timestamp(khoiHanhTu.getTime())));
         }
-        if (khoiHanhDen != null) {
-            sql.append(" AND ct.thoiGianKhoiHanh <= ?");
-            params.add(new Timestamp(khoiHanhDen.getTime()));
-        }
-        
 
         sql.append(" ORDER BY ct.thoiGianKhoiHanh");
 
-        List<ChuyenDi> result = new ArrayList<>();
+        List<ChuyenTau> out = new ArrayList<>();
         try (Connection con = ConnectDB.getConnection();
              PreparedStatement ps = con.prepareStatement(sql.toString())) {
-
-            for (int i = 0; i < params.size(); i++) {
-                ps.setObject(i + 1, params.get(i));
-            }
-
+            for (int i = 0; i < params.size(); i++) ps.setObject(i + 1, params.get(i));
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    String ma = rs.getString("maChuyenTau");
-                    String gaDiVal = rs.getString("gaDi");
-                    String gaDenVal = rs.getString("gaDen");
-                    Timestamp gioDi = rs.getTimestamp("thoiGianKhoiHanh");
-                    Timestamp gioDen = rs.getTimestamp("thoiGianKetThuc");
-                    String tenTau = rs.getString("tenTau");
-                    int soGheTrong = rs.getInt("soGheTrong");
-
-                    LocalDateTime khoiHanh = gioDi != null
-                            ? LocalDateTime.ofInstant(gioDi.toInstant(), ZoneId.systemDefault())
-                            : null;
-                    LocalDateTime ketThuc = gioDen != null
-                            ? LocalDateTime.ofInstant(gioDen.toInstant(), ZoneId.systemDefault())
-                            : null;
-
-                    result.add(new ChuyenDi(ma,
-                            gaDiVal,
-                            gaDenVal,
-                            khoiHanh,
-                            ketThuc,
-                            tenTau,
-                            soGheTrong
-                            ));
+                    out.add(new ChuyenTau(
+                        rs.getString("maChuyenTau"),
+                        rs.getString("gaDi"),
+                        rs.getString("gaDen"),
+                        rs.getTimestamp("thoiGianKhoiHanh").toLocalDateTime(),
+                        rs.getTimestamp("thoiGianKetThuc").toLocalDateTime(),
+                        rs.getString("tenTau"),
+                        rs.getInt("soGheTrong")
+                    ));
                 }
-            }   
+            }
         }
-        return result;
+        return out;
     }
 }
