@@ -10,6 +10,7 @@ import java.util.List;
 
 public class NhanVien_Dao {
 
+    /** Tìm NV theo username, chỉ nhận tài khoản trạng thái KICH_HOAT. */
     public NhanVien findByUsername(String username) {
         String sql = """
             SELECT
@@ -24,7 +25,7 @@ public class NhanVien_Dao {
             LEFT JOIN LoaiNhanVien  lnv ON lnv.maLoaiNV = nv.maLoaiNV
             LEFT JOIN LoaiTaiKhoan  ltk ON ltk.maLoaiTK = tk.maLoaiTK
             WHERE tk.tenDangNhap = ?
-                AND UPPER(LTRIM(RTRIM(COALESCE(tk.trangThai, '')))) = 'Kich_Hoat'
+              AND UPPER(LTRIM(RTRIM(COALESCE(tk.trangThai, '')))) = 'KICH_HOAT'
         """;
         try (Connection con = ConnectDB.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -41,7 +42,7 @@ public class NhanVien_Dao {
                 String role = (loaiNV != null && !loaiNV.isBlank()) ? loaiNV
                              : (loaiTK == null ? "" : loaiTK);
 
-                if (role.toLowerCase().contains("quản")        // Quản trị, Quản lý
+                if (role.toLowerCase().contains("quản")
                         || role.equalsIgnoreCase("admin")
                         || role.toLowerCase().contains("manager")) {
                     return new NhanVienQuanLy(maNV, tenNV, sdt, email);
@@ -58,9 +59,8 @@ public class NhanVien_Dao {
 
     /**
      * Danh sách nhân viên hiển thị trên màn quản lý:
-     * bao gồm nhân viên chưa có tài khoản và những tài khoản đang ở trạng thái "Kich_Hoat".
+     * gồm NV chưa có tài khoản và tài khoản trạng thái KICH_HOAT.
      */
-    
     public List<NhanVienThongTin> findAll() throws SQLException {
         List<NhanVienThongTin> list = new ArrayList<>();
         String sql = """
@@ -74,12 +74,11 @@ public class NhanVien_Dao {
                 nv.ngayBatDauLamViec,
                 nv.maLoaiNV,
                 lnv.moTa AS moTaLoaiNV
-                     
             FROM NhanVien nv
             LEFT JOIN TaiKhoan tk ON tk.maNV = nv.maNV
             LEFT JOIN LoaiNhanVien lnv ON lnv.maLoaiNV = nv.maLoaiNV
             WHERE tk.maNV IS NULL
-                OR UPPER(LTRIM(RTRIM(COALESCE(tk.trangThai, '')))) = 'Kich_Hoat'
+               OR UPPER(LTRIM(RTRIM(COALESCE(tk.trangThai, '')))) = 'KICH_HOAT'
             ORDER BY nv.maNV
         """;
         try (Connection con = ConnectDB.getConnection();
@@ -161,7 +160,6 @@ public class NhanVien_Dao {
         return "NV001";
     }
 
-
     public int insert(NhanVienThongTin nv) throws SQLException {
         String sql = """
             INSERT INTO NhanVien(maNV, tenNV, ngaySinh, soDienThoai, email, cccd, maLoaiNV, ngayBatDauLamViec)
@@ -225,13 +223,13 @@ public class NhanVien_Dao {
         }
     }
 
-    // Ẩn NV trong table: đưa các tài khoản về inactive
+    /** Đưa tài khoản NV về trạng thái VO_HIEU_HOA (nếu đang active). */
     public int deactivateById(String maNV) throws SQLException {
         String sql = """
             UPDATE TaiKhoan
                SET trangThai = 'Vo_Hieu_Hoa'
              WHERE maNV = ?
-               AND UPPER(LTRIM(RTRIM(COALESCE(trangThai, '')))) <> 'Vo_Hieu_Hoa'
+               AND UPPER(LTRIM(RTRIM(COALESCE(trangThai, '')))) <> 'VO_HIEU_HOA'
         """;
         try (Connection con = ConnectDB.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -239,7 +237,52 @@ public class NhanVien_Dao {
             return ps.executeUpdate();
         }
     }
+
     private LocalDate toLocalDate(Date date) {
         return date == null ? null : date.toLocalDate();
     }
+
+    // =================== BỔ SUNG DÙNG CHO BÁN VÉ ===================
+
+    /** Lấy maNV đầu tiên hợp lệ (chưa có TK hoặc TK KICH_HOAT). */
+    public String findFirstActiveMaNV() throws SQLException {
+        String sql = """
+            SELECT TOP 1 nv.maNV
+            FROM NhanVien nv
+            LEFT JOIN TaiKhoan tk ON tk.maNV = nv.maNV
+            WHERE tk.maNV IS NULL
+               OR UPPER(LTRIM(RTRIM(COALESCE(tk.trangThai, '')))) = 'KICH_HOAT'
+            ORDER BY nv.maNV
+        """;
+        try (Connection con = ConnectDB.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) return rs.getString(1);
+            return null;
+        }
+    }
+
+    /**
+     * Giải quyết maNV cho thanh toán:
+     * - Nếu có username -> tìm NV đang KICH_HOAT.
+     * - Nếu không thấy -> fallback maNV đầu tiên hợp lệ.
+     */
+    public String resolveMaNVForPayment(String username) throws SQLException {
+        if (username != null && !username.isBlank()) {
+            NhanVien nv = findByUsername(username);
+            if (nv != null) return nv.getMaNV();
+        }
+        return findFirstActiveMaNV();
+    }
+    
+    public boolean exists(String maNV) throws SQLException {
+        return existsById(maNV);        // đã có sẵn trong DAO
+    }
+
+    public String getAnyActiveMaNV() throws SQLException {
+        // nếu bạn đã có findFirstActiveMaNV() thì gọi lại
+        return findFirstActiveMaNV();
+    }
+    
+    
 }

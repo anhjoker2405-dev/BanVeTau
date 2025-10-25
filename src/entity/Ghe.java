@@ -1,57 +1,56 @@
 package entity;
-
+/**
+ * Đại diện một ghế cụ thể trong khoang tàu.
+ */
 public class Ghe {
-    private String maGhe;
-    private int soGhe;
-    private String loaiGhe;
-    private String maKhoangTau;
-    private boolean booked;
+    private final String maGhe;
+    private final String soGhe;
+    private final String maLoaiGhe;
+    private final String maKhoangTau;
+    private final boolean daDat;
+    private int thuTuHienThi;
 
-    public Ghe(String maGhe, int soGhe, String loaiGhe, String maKhoangTau, boolean booked) {
+    public Ghe(String maGhe, String soGhe, String maLoaiGhe, String maKhoangTau, boolean daDat) {
         this.maGhe = maGhe;
         this.soGhe = soGhe;
-        this.loaiGhe = loaiGhe;
+        this.maLoaiGhe = maLoaiGhe;
         this.maKhoangTau = maKhoangTau;
-        this.booked = booked;
+        this.daDat = daDat;
     }
 
+    public String getMaGhe() {
+        return maGhe;
+    }
+
+    public String getSoGhe() {
+        return soGhe;
+    }
+
+    public String getMaLoaiGhe() {
+        return maLoaiGhe;
+    }
+
+    public String getMaKhoangTau() {
+        return maKhoangTau;
+    }
     
+    public boolean isDaDat() {
+        return daDat;
+    }
+
+    public int getThuTuHienThi() {
+        return thuTuHienThi;
+    }
     
-    
-    public void setMaGhe(String maGhe) {
-		this.maGhe = maGhe;
-	}
+    public void setThuTuHienThi(int thuTuHienThi) {
+        this.thuTuHienThi = thuTuHienThi;
+    }
 
-
-
-
-	public void setSoGhe(int soGhe) {
-		this.soGhe = soGhe;
-	}
-
-
-
-
-	public void setLoaiGhe(String loaiGhe) {
-		this.loaiGhe = loaiGhe;
-	}
-
-
-
-
-	public void setMaKhoangTau(String maKhoangTau) {
-		this.maKhoangTau = maKhoangTau;
-	}
-
-	
-
-
-	public String getMaGhe() { return maGhe; }
-    public int getSoGhe() { return soGhe; }
-    public String getLoaiGhe() { return loaiGhe; }
-    public String getMaKhoangTau() { return maKhoangTau; }
-    public boolean isBooked() { return booked; }
-
-    public void setBooked(boolean b) { 
-    	this.booked = b; }
+    public int getSoGheAsInt() {
+        try {
+            return Integer.parseInt(soGhe.trim());
+        } catch (NumberFormatException ex) {
+            return 0;
+        }
+    }
 }

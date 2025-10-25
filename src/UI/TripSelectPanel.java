@@ -4,10 +4,12 @@ import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
 import java.awt.event.ActionListener;
+import java.awt.event.ActionEvent;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.*;
+import java.util.function.Consumer;
 
 public class TripSelectPanel extends JPanel {
 
@@ -30,6 +32,7 @@ public class TripSelectPanel extends JPanel {
     // ====== Center list ======
     private JPanel listPanel;    // chứa các TripRow
     private JButton btnBack;
+    private Consumer<Trip> chooseTripListener;
 
     public TripSelectPanel() {
         setLayout(new BorderLayout(12,12));
@@ -155,9 +158,16 @@ public class TripSelectPanel extends JPanel {
     public void onBack(ActionListener al) { btnBack.addActionListener(al); }
 
     public void onChooseTrip(ActionListener al) {
-        // mỗi TripRow sẽ expose button "Chọn" để add listener sau khi setTrips
-        for (Component c : listPanel.getComponents()) {
-            if (c instanceof TripRow) ((TripRow)c).btnChoose.addActionListener(al);
+        setTripSelectionListener(trip -> al.actionPerformed(new ActionEvent(trip, ActionEvent.ACTION_PERFORMED, trip.code)));
+    }
+
+    public void setTripSelectionListener(Consumer<Trip> listener) {
+        this.chooseTripListener = listener;
+    }
+
+    private void fireTripChosen(Trip trip) {
+        if (chooseTripListener != null) {
+            chooseTripListener.accept(trip);
         }
     }
 
@@ -239,9 +249,11 @@ public class TripSelectPanel extends JPanel {
             cols.add(lbPrice); cols.add(valPrice);
 
             btnChoose = new JButton("Chọn");
-            styleBlueButton(btnChoose, true);
+//            styleBlueButton(btnChoose, true);
+            stylePrimaryButton(btnChoose);
             btnChoose.putClientProperty("trip", t);
             btnChoose.setPreferredSize(new Dimension(120, 34));
+            btnChoose.addActionListener(e -> fireTripChosen(trip));
 
             JPanel btnWrap = new JPanel(new GridBagLayout());
             btnWrap.setOpaque(false);
@@ -458,9 +470,52 @@ public class TripSelectPanel extends JPanel {
             
         );
     }
+    
+    private void stylePrimaryButton(JButton btn) {
+        // Ép dùng BasicButtonUI để Windows L&F không ghi đè màu nền
+        btn.setUI(new javax.swing.plaf.basic.BasicButtonUI());
+
+        btn.setOpaque(true);
+        btn.setContentAreaFilled(true);
+        btn.setBorderPainted(true);
+
+        btn.setBackground(new Color(0x1976D2)); // xanh đậm
+        btn.setForeground(Color.WHITE);         // chữ trắng
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        btn.setBorder(BorderFactory.createLineBorder(new Color(0x1565C0)));
+        btn.setFocusPainted(false);
+        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+        // Giữ màu khi trạng thái enable/disable thay đổi
+        btn.addChangeListener(e -> {
+            if (btn.isEnabled()) {
+                if (!btn.getModel().isRollover()) {
+                    btn.setBackground(new Color(0x1976D2));
+                }
+                btn.setForeground(Color.WHITE);
+            } else {
+                // Nếu muốn khi disable vẫn xanh: giữ nguyên; 
+                // còn nếu muốn xám thì có thể setForeground(new Color(180,180,180));
+                btn.setBackground(new Color(0x1976D2));
+                btn.setForeground(new Color(255,255,255,180));
+            }
+        });
+
+        // Hiệu ứng hover
+        btn.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override public void mouseEntered(java.awt.event.MouseEvent e) {
+                if (btn.isEnabled()) btn.setBackground(new Color(0x2196F3));
+            }
+            @Override public void mouseExited(java.awt.event.MouseEvent e) {
+                if (btn.isEnabled()) btn.setBackground(new Color(0x1976D2));
+            }
+        });
+    }
 
     // ======= Public getters để tích hợp tầng Controller =======
     public JButton getBackButton(){ return btnBack; }
+    
+    
 
     // ======= Quick run =======
     public static void main(String[] args) {

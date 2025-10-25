@@ -3,22 +3,35 @@ package ui;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.TitledBorder;
+import javax.swing.border.LineBorder;
+import javax.swing.border.CompoundBorder;
 import javax.swing.plaf.basic.BasicToggleButtonUI;
 import java.awt.*;
 import java.util.*;
 import java.util.List;
 import java.text.NumberFormat;
-import com.toedter.calendar.JDateChooser;
+import java.math.BigDecimal;
+
+import dao.ThanhToan_Dao;
+import dao.GiaVe_Dao;
+import dao.KhuyenMai_Dao;
+import entity.KhuyenMai;
 import dao.ChuyenDi_Dao;
-import entity.ChuyenDi;
 import entity.ChuyenTau;
+
+// >>> Thêm import lấy dữ liệu NV/HK từ SQL và phiên đăng nhập
+import util.AppSession;
+import dao.NhanVien_Dao;
+import dao.HanhKhach_Dao;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Date;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 
 public class BanVe extends JPanel {
+    private static final int BASE_PRICE = 81060;
 
     private static final Color BLUE = new Color(47, 107, 255);
     private static final Color BLUE_HOVER = new Color(47, 107, 255, 30);
@@ -28,24 +41,24 @@ public class BanVe extends JPanel {
     private final JPanel cards = new JPanel(wizard);
 
     private final ChooseTripPage page1 = new ChooseTripPage();
-    private final TicketDetailPage page2 = new TicketDetailPage();
+    private final ManChonGheNgoi page2 = new ManChonGheNgoi();
     private final PaymentPage page3 = new PaymentPage();
 
     private TrainInfo currentTrain;
-    private int currentCarIndex = 1;
     private final List<TicketSelection> selections = new ArrayList<>();
+    private TripSelectPanel.Trip selectedTrip;
 
     public BanVe() {
         setLayout(new BorderLayout());
         setBackground(PANEL_BG);
 
-        // BỎ THANH 1-2-3 (Step Bar)
-        // add(stepBar, BorderLayout.NORTH);
-
         cards.add(page1, "p1");
         cards.add(page2, "p2");
         cards.add(page3, "p3");
         add(cards, BorderLayout.CENTER);
+
+        page2.addBackActionListener(e -> showStep(1));
+        page2.addNextActionListener(e -> handleSeatSelectionNext());
 
         showStep(1);
     }
@@ -53,13 +66,12 @@ public class BanVe extends JPanel {
     private void showStep(int step) {
         switch (step) {
             case 1 -> wizard.show(cards, "p1");
-            case 2 -> { page2.refresh(); wizard.show(cards, "p2"); }
+            case 2 -> wizard.show(cards, "p2");
             case 3 -> { page3.refresh(); wizard.show(cards, "p3"); }
         }
     }
 
     // ======================= PAGE 1 =======================
-    
     private class ChooseTripPage extends JPanel {
         private final CardLayout subCards = new CardLayout();
         private final JPanel subPanel = new JPanel(subCards);
@@ -84,7 +96,6 @@ public class BanVe extends JPanel {
                 searchPanel.setStations(gaDi, gaDen);
             } catch (Exception ex) {
                 ex.printStackTrace();
-                // fallback: để trống, người dùng tự gõ
             }
 
             // Sự kiện tìm kiếm
@@ -120,9 +131,9 @@ public class BanVe extends JPanel {
                 resultPanel.setContext(gaDi, gaDen, ngay);
                 resultPanel.setTrips(trips);
                 resultPanel.onBack(evt -> subCards.show(subPanel, "search"));
-                resultPanel.onChooseTrip(evt -> {
-                    // Chuyển bước tiếp theo (chưa tích hợp chọn ghế)
-                    showStep(2);
+                resultPanel.setTripSelectionListener(trip -> {
+                    handleTripSelection(trip);
+                    subCards.show(subPanel, "result");
                 });
 
                 subCards.show(subPanel, "result");
@@ -130,121 +141,146 @@ public class BanVe extends JPanel {
         }
     }
 
-
     // ======================= PAGE 2 =======================
-    private class TicketDetailPage extends JPanel {
-        private final JPanel list = new JPanel();
-        private final JButton btnBack = new JButton("Quay lại");
-        private final JButton btnNext = new JButton("Tiếp tục");
+    private void handleTripSelection(TripSelectPanel.Trip trip) {
+        if (trip == null) return;
 
-        TicketDetailPage() {
-            setOpaque(false);
-            setLayout(new BorderLayout());
+        selectedTrip = trip;
+        selections.clear();
+        page2.clearSelection();
 
-            JLabel head = new JLabel("CHI TIẾT VÉ", SwingConstants.LEFT);
-            head.setBorder(new EmptyBorder(12, 14, 12, 14));
-            head.setOpaque(true);
-            head.setBackground(new Color(220, 235, 255));
-            head.setFont(head.getFont().deriveFont(Font.BOLD, 20f));
-            add(head, BorderLayout.NORTH);
+        LocalDate ngayDi = trip.depart != null ? trip.depart.toLocalDate() : null;
+        page2.setRoute(trip.departStation, trip.arriveStation, ngayDi);
 
-            list.setOpaque(false);
-            list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
-            JScrollPane sp = new JScrollPane(list);
-            sp.setBorder(new EmptyBorder(0,0,0,0));
-            add(sp, BorderLayout.CENTER);
+        boolean loaded = page2.loadSeatMap(trip.code);
+        if (!loaded) return;
 
-            JPanel foot = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-            foot.add(btnBack); foot.add(btnNext);
-            add(foot, BorderLayout.SOUTH);
+        DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("HH:mm");
+        currentTrain = new TrainInfo(
+                trip.code,
+                trip.depart != null ? trip.depart.format(timeFmt) : "",
+                trip.arrive != null ? trip.arrive.format(timeFmt) : "",
+                trip.departStation + " -> " + trip.arriveStation,
+                page2.getCarCount()
+        );
 
-            btnBack.addActionListener(e -> showStep(1));
-            btnNext.addActionListener(e -> {
-                if (selections.isEmpty()) {
-                    JOptionPane.showMessageDialog(BanVe.this, "Chưa có ghế nào được chọn.");
-                    return;
+        showStep(2);
+    }
+
+    private void handleSeatSelectionNext() {
+        List<ManChonGheNgoi.SeatSelection> seats = page2.getSelectedSeats();
+        if (seats.isEmpty()) {
+            JOptionPane.showMessageDialog(BanVe.this, "Chưa có ghế nào được chọn.");
+            return;
+        }
+
+        if (currentTrain == null && selectedTrip != null) {
+            DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("HH:mm");
+            currentTrain = new TrainInfo(
+                    selectedTrip.code,
+                    selectedTrip.depart != null ? selectedTrip.depart.format(timeFmt) : "",
+                    selectedTrip.arrive != null ? selectedTrip.arrive.format(timeFmt) : "",
+                    selectedTrip.departStation + " -> " + selectedTrip.arriveStation,
+                    page2.getCarCount()
+            );
+        }
+
+        if (currentTrain == null) {
+            JOptionPane.showMessageDialog(BanVe.this, "Không xác định được thông tin chuyến tàu.");
+            return;
+        }
+
+        selections.clear();
+
+        // --- lấy giá cơ sở từ DB (nếu có) ---
+        int base = BASE_PRICE;
+        try {
+            BigDecimal bd = new GiaVe_Dao().getGiaCoSoByMaChuyenTau(currentTrain.code);
+            if (bd != null) base = bd.intValue();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+
+        // set vào màn chi tiết vé (bên phải) để hiển thị đúng
+        page2.setPerSeatPrice(base);
+
+        
+        
+        for (ManChonGheNgoi.SeatSelection seat : seats) {
+            int seatNumber = seat.getSeatDisplayNumber();
+            TicketSelection ts = new TicketSelection(currentTrain, seat.getSoToa(), seatNumber, base, seat.getMaGhe());
+
+            // Snapshot dữ liệu từ bước 2
+            String name = "";
+            String phone = "";
+            String cccd = "";
+            String yob = "";
+            String typeText = "";
+
+            try {
+                java.util.Map<String, ManChonGheNgoi.FormRefs> map = page2.getFormBinding();
+                ManChonGheNgoi.FormRefs r = (map != null) ? map.get(seat.getMaGhe()) : null;
+                if (r != null) {
+                    if (r.tfName != null)  name = r.tfName.getText();
+                    if (r.tfPhone != null) phone = r.tfPhone.getText();
+                    if (r.tfCCCD != null)  cccd = r.tfCCCD.getText();
+                    if (r.cbYear != null && r.cbYear.getSelectedItem() != null) {
+                        yob = r.cbYear.getSelectedItem().toString();
+                    }
+                    if (r.cbType != null && r.cbType.getSelectedItem() != null) {
+                        typeText = r.cbType.getSelectedItem().toString();
+                    }
                 }
-                showStep(3);
-            });
-        }
-
-        void refresh() {
-            list.removeAll();
-            int idx = 1;
-            for (TicketSelection s : selections) {
-                list.add(ticketCard("Chi Tiết Vé " + idx++, s));
-                list.add(Box.createVerticalStrut(10));
+            } catch (Exception ex) {
+                ex.printStackTrace();
             }
-            if (selections.isEmpty()) {
-                list.add(centerMsg("Chưa chọn ghế nào. Vui lòng quay lại Bước 1."));
-            }
-            revalidate(); repaint();
-        }
 
-        private JPanel ticketCard(String title, TicketSelection sel) {
-            JPanel card = new JPanel(new BorderLayout());
-            TitledBorder tb = BorderFactory.createTitledBorder(title + " – Tàu " + sel.train.code + " · Toa " + sel.car + " · Ghế " + sel.seat);
-            tb.setTitleFont(tb.getTitleFont().deriveFont(Font.BOLD, 16f));
-            card.setBorder(BorderFactory.createCompoundBorder(
-                    tb,
-                    new EmptyBorder(10, 10, 10, 10)
-            ));
+            // Gán về TicketSelection bằng control MỚI (không phụ thuộc panel bước 2)
+            ts.tfName  = new javax.swing.JTextField(name);
+            ts.tfPhone = new javax.swing.JTextField(phone);
+            ts.tfCCCD  = new javax.swing.JTextField(cccd);
 
-            JPanel grid = new JPanel(new GridLayout(0, 2, 10, 8));
-            Font labelFont = new Font("Segoe UI", Font.PLAIN, 14);
+            javax.swing.JTextField tfBirth = new javax.swing.JTextField(yob);
+            ts.tfBirth = tfBirth;
 
-            JLabel lbName = new JLabel("Họ Tên"); lbName.setFont(labelFont);
-            JLabel lbPhone = new JLabel("SĐT"); lbPhone.setFont(labelFont);
-            JLabel lbCCCD = new JLabel("CCCD"); lbCCCD.setFont(labelFont);
-            JLabel lbBirth = new JLabel("Năm sinh"); lbBirth.setFont(labelFont);
-            JLabel lbType = new JLabel("Loại vé"); lbType.setFont(labelFont);
-
-            JTextField tfName = new JTextField();
-            JTextField tfPhone = new JTextField();
-            JTextField tfCCCD = new JTextField();
-            JTextField tfBirth = new JTextField();
-            JComboBox<String> cbType = new JComboBox<>(new String[]{
-                    "Vé thường", "Vé dành cho học sinh, sinh viên", "Vé người cao tuổi"
+            javax.swing.JComboBox<String> cbType = new javax.swing.JComboBox<>(new String[]{
+                "Vé dành cho học sinh, sinh viên","Vé người lớn","Vé trẻ em"
             });
-            Dimension f = new Dimension(220, 32);
-            tfName.setPreferredSize(f); tfPhone.setPreferredSize(f);
-            tfCCCD.setPreferredSize(f); tfBirth.setPreferredSize(f); cbType.setPreferredSize(f);
+            cbType.setSelectedItem(typeText);
+            ts.cbType = cbType;
 
-            sel.tfName = tfName; sel.tfPhone = tfPhone; sel.tfCCCD = tfCCCD; sel.tfBirth = tfBirth; sel.cbType = cbType;
-
-            grid.add(lbName); grid.add(tfName);
-            grid.add(lbPhone); grid.add(tfPhone);
-            grid.add(lbCCCD); grid.add(tfCCCD);
-            grid.add(lbBirth); grid.add(tfBirth);
-            grid.add(lbType); grid.add(cbType);
-
-            JPanel priceRow = new JPanel(new BorderLayout());
-            JLabel price = new JLabel("Giá vé: " + formatVND(sel.price));
-            price.setForeground(new Color(200,0,0));
-            price.setFont(price.getFont().deriveFont(Font.BOLD, 14f));
-            JButton remove = new JButton("Xóa ghế");
-            remove.addActionListener(e -> { selections.remove(sel); refresh(); });
-            priceRow.add(price, BorderLayout.WEST);
-            priceRow.add(remove, BorderLayout.EAST);
-
-            JPanel center = new JPanel(new BorderLayout());
-            center.add(grid, BorderLayout.CENTER);
-            center.add(priceRow, BorderLayout.SOUTH);
-
-            card.add(center, BorderLayout.CENTER);
-            return card;
+            selections.add(ts);
         }
+
+
+
+        showStep(3);
     }
 
     // ======================= PAGE 3 =======================
     private class PaymentPage extends JPanel {
         private final JLabel totalLabel = new JLabel("Tổng tiền: 0₫");
-        private final JRadioButton cash = new JRadioButton("Tiền mặt");
-        private final JRadioButton bank = new JRadioButton("Chuyển khoản", true);
+        private final JPanel summary = new JPanel();
+        private final JRadioButton cash = new JRadioButton("Tiền mặt", true);
+
+        // các field được outer class truy cập khi lưu
+        int totalComputed = 0;
+        String maKMComputed = null;
+        BigDecimal unitPriceComputed = BigDecimal.ZERO;
+
+        private final JComboBox<KhuyenMai> cbKhuyenMai = new JComboBox<>();
+        final JSpinner spVat = new JSpinner(new SpinnerNumberModel(10, 0, 20, 1));
+
         private final JButton btnBack = new JButton("Quay Lại");
         private final JButton btnConfirm = new JButton("Xác Nhận");
 
-        PaymentPage() {
+        
+        // === Customer info box ===
+        private final JPanel customerBox = new JPanel(new GridBagLayout());
+        private final JLabel lbCusName  = new JLabel("-");
+        private final JLabel lbCusPhone = new JLabel("-");
+        private final JLabel lbCusCCCD  = new JLabel("-");
+PaymentPage() {
             setOpaque(false);
             setLayout(new BorderLayout());
 
@@ -255,94 +291,220 @@ public class BanVe extends JPanel {
             head.setFont(head.getFont().deriveFont(Font.BOLD, 20f));
             add(head, BorderLayout.NORTH);
 
-            JPanel center = new JPanel(new GridBagLayout());
-            center.setOpaque(false);
+            // Summary list
+            summary.setOpaque(false);
+            summary.setLayout(new BoxLayout(summary, BoxLayout.Y_AXIS));
+            JScrollPane summaryScroll = new JScrollPane(summary);
+            summaryScroll.setBorder(new EmptyBorder(8, 12, 8, 12));
+            summaryScroll.getVerticalScrollBar().setUnitIncrement(18);
+            add(summaryScroll, BorderLayout.CENTER);
+
+            // Payment box
+            JPanel payBox = new JPanel(new GridBagLayout());
+            payBox.setBorder(new EmptyBorder(8, 12, 12, 12));
+            payBox.setOpaque(false);
             GridBagConstraints gc = new GridBagConstraints();
             gc.insets = new Insets(6,6,6,6);
-            gc.fill = GridBagConstraints.HORIZONTAL;
+            gc.anchor = GridBagConstraints.WEST;
+
+            ButtonGroup g = new ButtonGroup(); g.add(cash);
             gc.gridx = 0; gc.gridy = 0;
-            ButtonGroup g = new ButtonGroup(); g.add(cash); g.add(bank);
-            center.add(new JLabel("Hình thức"), gc);
+            payBox.add(new JLabel("Hình thức"), gc);
             gc.gridx = 1; JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
-            p.setOpaque(false); p.add(cash); p.add(bank);
-            center.add(p, gc);
+            p.setOpaque(false); p.add(cash);
+            payBox.add(p, gc);
 
             gc.gridx = 0; gc.gridy = 1;
-            center.add(new JLabel("Số tiền cần thanh toán"), gc);
+            payBox.add(new JLabel("Số tiền cần thanh toán"), gc);
             gc.gridx = 1; totalLabel.setForeground(new Color(200,0,0));
             totalLabel.setFont(totalLabel.getFont().deriveFont(Font.BOLD, 16f));
-            center.add(totalLabel, gc);
+            payBox.add(totalLabel, gc);
 
-            add(center, BorderLayout.CENTER);
+            // Khuyến mãi
+            gc.gridx = 0; gc.gridy = 2; gc.gridwidth = 1; payBox.add(new JLabel("Khuyến mãi"), gc);
+            gc.gridx = 1; payBox.add(cbKhuyenMai, gc);
 
+            // VAT
+            gc.gridx = 0; gc.gridy = 3; payBox.add(new JLabel("VAT (%)"), gc);
+            gc.gridx = 1; payBox.add(spVat, gc);
+
+            gc.gridx = 0; gc.gridy = 4; gc.gridwidth = 2;
+
+            JPanel bottomArea = new JPanel(new BorderLayout());
+            bottomArea.setOpaque(false);
+            bottomArea.add(buildCustomerInfoBox(), BorderLayout.NORTH);
+            bottomArea.add(payBox, BorderLayout.CENTER);
             JPanel foot = new JPanel(new FlowLayout(FlowLayout.RIGHT));
             foot.add(btnBack); foot.add(btnConfirm);
-            add(foot, BorderLayout.SOUTH);
+            bottomArea.add(foot, BorderLayout.SOUTH);
+            add(bottomArea, BorderLayout.SOUTH);
 
             btnBack.addActionListener(e -> showStep(2));
-            btnConfirm.addActionListener(e -> JOptionPane.showMessageDialog(BanVe.this,
-                    "Demo: sau này sẽ tạo hóa đơn & vé."));
+            btnConfirm.addActionListener(e -> thucHienThanhToan());
+
+            // Nạp danh sách khuyến mãi
+            try {
+                java.util.List<KhuyenMai> ds = new KhuyenMai_Dao().getAllKhuyenMai();
+                cbKhuyenMai.addItem(null);
+                for (KhuyenMai km : ds) cbKhuyenMai.addItem(km);
+                cbKhuyenMai.setRenderer(new DefaultListCellRenderer() {
+                    @Override
+                    public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                        Component c = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                        if (value instanceof KhuyenMai km) {
+                            setText(km.getTenKhuyenMai() + " (" + km.getGiamGia().multiply(new BigDecimal(100)).intValue() + "%)");
+                        } else if (value == null) {
+                            setText("Không áp dụng");
+                        }
+                        return c;
+                    }
+                });
+            } catch (Exception ex) { ex.printStackTrace(); }
+        }
+        // --- Helpers for ticket cards & customer box ---
+        private static String safe(JTextField tf) {
+            if (tf == null) return "-";
+            String s = tf.getText() == null ? "" : tf.getText().trim();
+            return s.isEmpty() ? "-" : s;
+        }
+        private static String safeCombo(JComboBox<?> cb) {
+            return (cb != null && cb.getSelectedItem() != null) ? cb.getSelectedItem().toString() : "-";
+        }
+        private int addInfoRow(JPanel p, GridBagConstraints gc, int row, String label, String value) {
+            gc.gridx = 0; gc.gridy = row; gc.weightx = 0; gc.anchor = GridBagConstraints.WEST;
+            p.add(new JLabel(label), gc);
+            gc.gridx = 1; gc.gridy = row; gc.weightx = 1;
+            p.add(new JLabel(value), gc);
+            return row + 1;
+        }
+        private JPanel buildTicketCard(int index, TicketSelection sel) {
+            JPanel card = new JPanel(new GridBagLayout());
+            card.setOpaque(false);
+            card.setBorder(new CompoundBorder(new LineBorder(new Color(230,230,230)),
+                             new EmptyBorder(10, 12, 10, 12)));
+
+            GridBagConstraints gc = new GridBagConstraints();
+            gc.insets = new Insets(3, 6, 3, 6);
+            gc.anchor = GridBagConstraints.WEST;
+
+            JLabel lbSeat = new JLabel(String.format("Vé %d • Toa %d • Ghế %d", index, sel.car, sel.seat));
+            lbSeat.setFont(lbSeat.getFont().deriveFont(Font.BOLD));
+            JLabel lbPrice = new JLabel(formatVND(sel.price));
+            lbPrice.setForeground(new Color(200,0,0));
+            lbPrice.setFont(lbPrice.getFont().deriveFont(Font.BOLD, 13f));
+
+            gc.gridx = 0; gc.gridy = 0; gc.weightx = 1; card.add(lbSeat, gc);
+            gc.gridx = 1; gc.gridy = 0; gc.weightx = 0; gc.anchor = GridBagConstraints.EAST; card.add(lbPrice, gc);
+            gc.anchor = GridBagConstraints.WEST;
+            int row = 1;
+
+            row = addInfoRow(card, gc, row, "Họ tên",    safe(sel.tfName));
+            row = addInfoRow(card, gc, row, "SĐT",       (sel.tfPhone != null ? safe(sel.tfPhone) : "-"));
+            row = addInfoRow(card, gc, row, "CCCD",      safe(sel.tfCCCD));
+            row = addInfoRow(card, gc, row, "Năm sinh",  (sel.tfBirth != null ? safe(sel.tfBirth) : "-"));
+            row = addInfoRow(card, gc, row, "Loại vé",   safeCombo(sel.cbType));
+
+            JButton btnEdit = new JButton("Sửa vé này");
+            btnEdit.addActionListener(e -> {
+                showStep(2);
+                SwingUtilities.invokeLater(() -> { try { if (sel.tfName != null) sel.tfName.requestFocusInWindow(); } catch (Exception ignore) {} });
+            });
+            gc.gridx = 0; gc.gridy = row; gc.gridwidth = 2; gc.anchor = GridBagConstraints.EAST;
+            card.add(btnEdit, gc);
+
+            return card;
+        }
+        private JPanel buildCustomerInfoBox() {
+            JPanel box = new JPanel(new GridBagLayout());
+            box.setOpaque(false);
+            box.setBorder(new CompoundBorder(
+                    new TitledBorder(new LineBorder(new Color(224,224,224)), "Thông tin khách hàng"),
+                    new EmptyBorder(6, 10, 6, 10)
+            ));
+            GridBagConstraints gc = new GridBagConstraints();
+            gc.insets = new Insets(4,6,4,6);
+            gc.anchor = GridBagConstraints.WEST;
+
+            gc.gridx = 0; gc.gridy = 0; box.add(new JLabel("Họ tên"), gc);
+            gc.gridx = 1; box.add(lbCusName, gc);
+
+            gc.gridx = 0; gc.gridy = 1; box.add(new JLabel("Số điện thoại"), gc);
+            gc.gridx = 1; box.add(lbCusPhone, gc);
+
+            gc.gridx = 0; gc.gridy = 2; box.add(new JLabel("CCCD"), gc);
+            gc.gridx = 1; box.add(lbCusCCCD, gc);
+
+            JButton btnEdit = new JButton("Sửa…");
+            btnEdit.addActionListener(e -> showStep(2));
+            gc.gridx = 2; gc.gridy = 0; gc.gridheight = 3; gc.weightx = 1; gc.anchor = GridBagConstraints.EAST;
+            box.add(btnEdit, gc);
+            return box;
+        }
+        private void updateCustomerInfoBox() {
+            if (selections == null || selections.isEmpty()) {
+                lbCusName.setText("-"); lbCusPhone.setText("-"); lbCusCCCD.setText("-"); return;
+            }
+            TicketSelection first = selections.get(0);
+            lbCusName.setText(first.tfName != null ? safe(first.tfName) : "-");
+            lbCusPhone.setText(first.tfPhone != null ? safe(first.tfPhone) : "-");
+            lbCusCCCD.setText(first.tfCCCD != null ? safe(first.tfCCCD) : "-");
         }
 
+
         void refresh() {
-            int total = selections.stream().mapToInt(s -> s.price).sum();
-            totalLabel.setText("Tổng tiền: " + formatVND(total));
+            summary.removeAll();
+            BigDecimal totalBD = BigDecimal.ZERO;
+
+            if (selections.isEmpty()) {
+                summary.add(centerMsg("Chưa có ghế nào được chọn."));
+            } else {
+                
+            int _i = 1;
+            for (TicketSelection sel : selections) {
+                JPanel card = buildTicketCard(_i++, sel);
+                summary.add(card);
+                summary.add(Box.createVerticalStrut(6));
+                totalBD = totalBD.add(new BigDecimal(sel.price));
+            }
+
+            }
+
+            BigDecimal promoRate = BigDecimal.ZERO; String maKM = null;
+            Object selKM = cbKhuyenMai.getSelectedItem();
+            if (selKM instanceof KhuyenMai km && km.getGiamGia() != null) {
+                promoRate = km.getGiamGia();
+                maKM = km.getMaKhuyenMai();
+            }
+
+            BigDecimal afterPromo = totalBD.multiply(BigDecimal.ONE.subtract(promoRate));
+            BigDecimal vatRate = new BigDecimal(((Integer)spVat.getValue())/100.0);
+            BigDecimal grand = afterPromo.multiply(BigDecimal.ONE.add(vatRate));
+            int grandInt = grand.setScale(0, java.math.RoundingMode.HALF_UP).intValue();
+
+            int qty = Math.max(selections.size(), 1);
+            BigDecimal unit = afterPromo
+                    .divide(new BigDecimal(qty), java.math.RoundingMode.HALF_UP) // đơn giá sau KM
+                    .multiply(BigDecimal.ONE.add(vatRate))                       // + VAT
+                    .setScale(0, java.math.RoundingMode.HALF_UP);
+
+            totalLabel.setText("Tổng tiền: " + formatVND(grandInt));
+
+            // giữ lại để outer class lưu DB
+            totalComputed = grandInt;
+            maKMComputed = maKM;
+            unitPriceComputed = unit;
+
+            summary.revalidate();
+            summary.repaint();
+            updateCustomerInfoBox();
         }
     }
 
     // ======= Common helpers =======
-    private static JPanel labeled(String label, JComponent comp) {
-        JPanel wrap = new JPanel();
-        wrap.setOpaque(false);
-        wrap.setLayout(new BoxLayout(wrap, BoxLayout.Y_AXIS));
-        JLabel lb = new JLabel(label);
-        lb.setBorder(new EmptyBorder(0, 2, 4, 2));
-        wrap.add(lb);
-
-        JPanel row = new JPanel(new BorderLayout());
-        row.setBackground(Color.WHITE);
-        row.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(210, 210, 210)),
-                new EmptyBorder(6, 8, 6, 8)
-        ));
-        row.add(comp, BorderLayout.CENTER);
-        wrap.add(row);
-        return wrap;
-    }
-    private static void stylePrimary(AbstractButton b) {
-        b.setBackground(BLUE); b.setForeground(Color.WHITE); b.setFocusPainted(false);
-        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-    }
-    private static Component tag(Color c, String text) {
-        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 2));
-        p.setBackground(c);
-        p.setBorder(new EmptyBorder(4,8,4,8));
-        p.add(new JLabel(text));
-        return p;
-    }
     private static JPanel centerMsg(String s) {
         JPanel p = new JPanel(new BorderLayout()); p.setOpaque(false);
         JLabel l = new JLabel("<html><div style='padding:8px;color:#666;'>" + s + "</div></html>", SwingConstants.CENTER);
         p.add(l, BorderLayout.CENTER); return p;
-    }
-    private static void setFixedSize(JComponent c, Dimension d) {
-        c.setMinimumSize(d); c.setPreferredSize(d); c.setMaximumSize(new Dimension(Integer.MAX_VALUE, d.height));
-    }
-
-    private static void stylePill(AbstractButton b) {
-        b.setFocusPainted(false);
-        b.setBackground(Color.WHITE);
-        b.setOpaque(true);
-        b.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(220, 220, 220)),
-                new EmptyBorder(8, 12, 8, 12)
-        ));
-        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        b.addChangeListener(e -> {
-            if (b.isSelected()) { b.setBackground(BLUE); b.setForeground(Color.WHITE); }
-            else if (b.getModel().isRollover()) { b.setBackground(BLUE_HOVER); b.setForeground(Color.BLACK); }
-            else { b.setBackground(Color.WHITE); b.setForeground(Color.BLACK); }
-        });
     }
 
     private static class TrainInfo {
@@ -353,10 +515,10 @@ public class BanVe extends JPanel {
         }
     }
     private static class TicketSelection {
-        final TrainInfo train; final int car; final int seat; final int price;
+        final TrainInfo train; final int car; final int seat; final int price; final String seatId;
         JTextField tfName, tfPhone, tfCCCD, tfBirth; JComboBox<String> cbType;
-        TicketSelection(TrainInfo t, int car, int seat, int price) {
-            this.train = t; this.car = car; this.seat = seat; this.price = price;
+        TicketSelection(TrainInfo t, int car, int seat, int price, String seatId) {
+            this.train = t; this.car = car; this.seat = seat; this.price = price; this.seatId = seatId;
         }
     }
     private static class TrainCard extends JPanel {
@@ -389,12 +551,6 @@ public class BanVe extends JPanel {
             toggle.setFocusPainted(false);
             toggle.setOpaque(false);
             toggle.setBorder(null);
-            toggle.addChangeListener(e -> {
-                ButtonModel m = toggle.getModel();
-                if (m.isSelected()) { inner.setBackground(new Color(47,107,255)); toggle.setForeground(Color.WHITE); }
-                else if (m.isRollover()) { inner.setBackground(new Color(47,107,255,30)); toggle.setForeground(Color.BLACK); }
-                else { inner.setBackground(Color.WHITE); toggle.setForeground(Color.BLACK); }
-            });
 
             inner.add(toggle, BorderLayout.CENTER);
             add(inner, BorderLayout.CENTER);
@@ -429,16 +585,6 @@ public class BanVe extends JPanel {
         }); }
     }
 
-    private List<TrainInfo> mockTrains() {
-        return Arrays.asList(
-                new TrainInfo("SE7", "06:00", "17:35", "Ngồi mềm điều hòa", 6),
-                new TrainInfo("SE5", "08:55", "20:20", "Ngồi mềm", 6),
-                new TrainInfo("SE9", "12:50", "03:40", "Ngồi mềm", 6),
-                new TrainInfo("SE3", "19:20", "05:15", "Ngồi mềm", 6),
-                new TrainInfo("SE1", "20:50", "05:45", "Ngồi mềm", 6)
-        );
-    }
-
     private int estimatePrice(TrainInfo t, int car, int seat) {
         int base = switch (t.coachLabel) {
             case "Ngồi mềm chất lượng cao" -> 350_000;
@@ -447,6 +593,88 @@ public class BanVe extends JPanel {
         };
         int extra = (seat % 2 == 0 ? 20_000 : 0) + (car <= 2 ? 30_000 : 0);
         return base + extra;
+    }
+
+    // ====== Xử lý thanh toán & lưu SQL ======
+    /** ĐÃ SỬA: không hard-code NV/HK; lấy đúng từ SQL */
+    private void thucHienThanhToan() {
+        if (selections.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Chưa có ghế nào được chọn.");
+            return;
+        }
+
+        // 1) Lấy mã NV từ phiên đăng nhập (hoặc rơi về NV đầu tiên trong bảng)
+        String maNV;
+        try {
+            NhanVien_Dao nvDao = new NhanVien_Dao();
+            String fromSession = AppSession.getMaNV();
+            if (fromSession != null && nvDao.exists(fromSession)) {
+                maNV = fromSession;
+            } else {
+                maNV = nvDao.getAnyActiveMaNV();
+                if (maNV == null) {
+                    JOptionPane.showMessageDialog(this, "Không tìm thấy nhân viên hợp lệ trong CSDL.");
+                    return;
+                }
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Lỗi kiểm tra nhân viên: " + ex.getMessage());
+            return;
+        }
+
+        // 2) Lấy thông tin khách từ thẻ 'Chi tiết vé' đầu tiên
+        TicketSelection first = selections.get(0);
+        String tenHK  = first.tfName  != null ? first.tfName.getText().trim()  : null;
+        String sdtHK  = first.tfPhone != null ? first.tfPhone.getText().trim() : null;
+        String cccdHK = first.tfCCCD  != null ? first.tfCCCD.getText().trim()  : null;
+
+        if (tenHK == null || tenHK.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Vui lòng nhập Họ tên khách ở phần Chi tiết vé.");
+            return;
+        }
+
+        String maHK;
+        try {
+            HanhKhach_Dao hkDao = new HanhKhach_Dao();
+            maHK = hkDao.ensure(tenHK, sdtHK, cccdHK);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Lỗi tạo/kiểm tra hành khách: " + ex.getMessage());
+            return;
+        }
+
+        // 3) Danh sách mã ghế
+        java.util.List<String> maGheList = new java.util.ArrayList<>();
+        for (TicketSelection sel : selections) maGheList.add(sel.seatId);
+
+        // 4) Mã chuyến tàu
+        String maChuyenTau = selectedTrip != null ? selectedTrip.code
+                : (currentTrain != null ? currentTrain.code : null);
+        if (maChuyenTau == null) {
+            JOptionPane.showMessageDialog(this, "Không xác định được mã chuyến tàu.");
+            return;
+        }
+
+        // 5) Lưu hóa đơn + vé
+        int tong = page3.totalComputed;
+        try {
+            ThanhToan_Dao service = new ThanhToan_Dao();
+            BigDecimal vat = new BigDecimal(((Integer)page3.spVat.getValue())/100.0);
+            String maKM = page3.maKMComputed;
+            BigDecimal unit = page3.unitPriceComputed; // đơn giá/ve sau KM+VAT
+
+            String maHD = service.luuHoaDonVaVe(maNV, maHK, maChuyenTau, maGheList, unit, vat, maKM);
+
+            JOptionPane.showMessageDialog(this,
+                "Thanh toán thành công!\nMã HĐ: " + maHD + "\nTổng tiền: " + formatVND(tong));
+            selections.clear();
+            showStep(1);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Có lỗi khi lưu dữ liệu: " + ex.getMessage(),
+                    "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     private static String formatVND(int amount) {

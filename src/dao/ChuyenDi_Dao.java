@@ -86,9 +86,7 @@ public class ChuyenDi_Dao {
         }
         if (khoiHanhTu != null) {
             sql.append(" AND ct.thoiGianKhoiHanh >= ?");
-        sql.append(" AND ct.thoiGianKhoiHanh <= ?");
             params.add(new Timestamp(khoiHanhTu.getTime()));
-        params.add(endOfDay(new Timestamp(khoiHanhTu.getTime())));
         }
 
         sql.append(" ORDER BY ct.thoiGianKhoiHanh");

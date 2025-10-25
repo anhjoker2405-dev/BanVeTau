@@ -138,6 +138,7 @@ public class SearchTripPanel extends JPanel {
         // ========== Nút tìm kiếm ==========
         gbc.gridx = 1; gbc.gridy++;
         btnTimKiem = new JButton("Tìm Kiếm");
+        stylePrimaryButton(btnTimKiem);
         btnTimKiem.setFont(btnTimKiem.getFont().deriveFont(Font.BOLD, 16f));
         btnTimKiem.setFocusable(false);
         btnTimKiem.setBackground(new Color(90, 160, 230));
@@ -267,6 +268,48 @@ public class SearchTripPanel extends JPanel {
 
     public void onSearch(java.awt.event.ActionListener l) { btnTimKiem.addActionListener(l); }
 
+    private void stylePrimaryButton(JButton btn) {
+    // Ép dùng BasicButtonUI để Windows L&F không ghi đè màu nền
+    btn.setUI(new javax.swing.plaf.basic.BasicButtonUI());
+
+    btn.setOpaque(true);
+    btn.setContentAreaFilled(true);
+    btn.setBorderPainted(true);
+
+    btn.setBackground(new Color(0x1976D2)); // xanh đậm
+    btn.setForeground(Color.WHITE);         // chữ trắng
+    btn.setFont(new Font("Segoe UI", Font.BOLD, 16));
+    btn.setBorder(BorderFactory.createLineBorder(new Color(0x1565C0)));
+    btn.setFocusPainted(false);
+    btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+    // Giữ màu khi trạng thái enable/disable thay đổi
+    btn.addChangeListener(e -> {
+        if (btn.isEnabled()) {
+            if (!btn.getModel().isRollover()) {
+                btn.setBackground(new Color(0x1976D2));
+            }
+            btn.setForeground(Color.WHITE);
+        } else {
+            // Nếu muốn khi disable vẫn xanh: giữ nguyên; 
+            // còn nếu muốn xám thì có thể setForeground(new Color(180,180,180));
+            btn.setBackground(new Color(0x1976D2));
+            btn.setForeground(new Color(255,255,255,180));
+        }
+    });
+
+    // Hiệu ứng hover
+    btn.addMouseListener(new java.awt.event.MouseAdapter() {
+        @Override public void mouseEntered(java.awt.event.MouseEvent e) {
+            if (btn.isEnabled()) btn.setBackground(new Color(0x2196F3));
+        }
+        @Override public void mouseExited(java.awt.event.MouseEvent e) {
+            if (btn.isEnabled()) btn.setBackground(new Color(0x1976D2));
+        }
+    });
+}
+
+    
     // Demo nhanh
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
