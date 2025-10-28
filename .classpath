@@ -8,5 +8,10 @@
 	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="lib" path="lib/mssql-jdbc-12.10.0.jre11.jar"/>
 	<classpathentry kind="lib" path="lib/jcalendar-1.4.jar"/>
+	<classpathentry kind="lib" path="lib/pdfbox-io-3.0.6.jar"/>
+	<classpathentry kind="lib" path="lib/slf4j-simple-2.0.9.jar"/>
+	<classpathentry kind="lib" path="lib/fontbox-3.0.6.jar"/>
+	<classpathentry kind="lib" path="lib/pdfbox-3.0.6.jar"/>
+	<classpathentry kind="lib" path="lib/slf4j-api-2.0.9.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

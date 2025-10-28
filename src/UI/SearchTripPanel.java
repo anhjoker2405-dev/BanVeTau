@@ -4,6 +4,8 @@ import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import javax.swing.plaf.basic.BasicSplitPaneDivider;
 import javax.swing.plaf.basic.BasicSplitPaneUI;
 import com.toedter.calendar.JDateChooser;
@@ -251,6 +253,10 @@ public class SearchTripPanel extends JPanel {
         if (gaDi != null) { cbGaDi.removeAllItems(); for (String s : gaDi) cbGaDi.addItem(s); }
         if (gaDen != null) { cbGaDen.removeAllItems(); for (String s : gaDen) cbGaDen.addItem(s); }
     }
+    public void setSelectedStations(String gaDi, String gaDen) {
+        selectStation(cbGaDi, gaDi);
+        selectStation(cbGaDen, gaDen);
+    }
     public String getGaDi() { return cbGaDi.getSelectedItem() == null ? null : cbGaDi.getSelectedItem().toString(); }
     public String getGaDen() { return cbGaDen.getSelectedItem() == null ? null : cbGaDen.getSelectedItem().toString(); }
     public boolean isKhuHoi() { return rbKhuHoi.isSelected(); }
@@ -264,6 +270,18 @@ public class SearchTripPanel extends JPanel {
         java.util.Date d = dcNgayVe.getDate();
         if (d == null) return getNgayDi();
         return d.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+    }
+    
+    public void setNgayDi(LocalDate ngay) {
+        if (ngay == null) return;
+        java.util.Date date = java.util.Date.from(ngay.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        dcNgayDi.setDate(date);
+    }
+
+    public void setNgayVe(LocalDate ngay) {
+        if (ngay == null) return;
+        java.util.Date date = java.util.Date.from(ngay.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        dcNgayVe.setDate(date);
     }
 
     public void onSearch(java.awt.event.ActionListener l) { btnTimKiem.addActionListener(l); }
@@ -308,8 +326,23 @@ public class SearchTripPanel extends JPanel {
         }
     });
 }
-
     
+    private void selectStation(JComboBox<String> comboBox, String value) {
+        if (value == null || comboBox == null) {
+            return;
+        }
+        ComboBoxModel<String> model = comboBox.getModel();
+        for (int i = 0; i < model.getSize(); i++) {
+            String item = model.getElementAt(i);
+            if (item != null && item.equalsIgnoreCase(value)) {
+                comboBox.setSelectedIndex(i);
+                return;
+            }
+        }
+        comboBox.addItem(value);
+        comboBox.setSelectedItem(value);
+    }
+
     // Demo nhanh
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {

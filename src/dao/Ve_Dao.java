@@ -7,9 +7,18 @@ import java.math.BigDecimal;
 import java.sql.*;
 
 public class Ve_Dao {
+    
+    public static void refreshExpiredTickets(int graceMinutes) throws SQLException {
+        try (Connection con = ConnectDB.getConnection();
+             CallableStatement cs = con.prepareCall("{ call dbo.MarkTicketsExpired(?) }")
+        ) {
+            cs.setInt(1, graceMinutes);
+            cs.executeUpdate();
+        }
+    }
 
     public boolean isSeatSold(Connection cn, String maChuyenTau, String maGhe) throws SQLException {
-        String sql = "SELECT 1 FROM Ve WHERE maChuyenTau=? AND maGhe=? AND trangThai<>N'Đã hủy'";
+        String sql = "SELECT 1 FROM Ve WHERE maChuyenTau=? AND maGhe=? AND trangThai IN (N'Đã bán', N'Đã đổi')";
         try (PreparedStatement ps = cn.prepareStatement(sql)) {
             ps.setString(1, maChuyenTau);
             ps.setString(2, maGhe);
@@ -41,9 +50,10 @@ public class Ve_Dao {
     }
 
     public int insertVe(Connection cn, String maVe, BigDecimal giaVe, String maLoaiVe,
-                        Timestamp ngayDat, String maGhe, String maChuyenTau, String maHK) throws SQLException {
+                        Timestamp ngayDat, String maGhe, String maChuyenTau, String maHK, String trangThai) throws SQLException {
+        String status = trangThai != null ? trangThai : "Đã bán";
         String sql = "INSERT INTO Ve(maVe, giaVe, maLoaiVe, ngayDat, maGhe, maChuyenTau, maHK, trangThai) " +
-                     "VALUES (?,?,?,?,?,?,?,N'Đã bán')";
+                     "VALUES (?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = cn.prepareStatement(sql)) {
             ps.setString(1, maVe);
             ps.setBigDecimal(2, giaVe);
@@ -52,6 +62,16 @@ public class Ve_Dao {
             ps.setString(5, maGhe);
             ps.setString(6, maChuyenTau);
             ps.setString(7, maHK);
+            ps.setString(8, status);
+            return ps.executeUpdate();
+        }
+    }
+
+    public int updateTrangThai(Connection cn, String maVe, String trangThai) throws SQLException {
+        String sql = "UPDATE Ve SET trangThai = ? WHERE maVe = ?";
+        try (PreparedStatement ps = cn.prepareStatement(sql)) {
+            ps.setString(1, trangThai);
+            ps.setString(2, maVe);
             return ps.executeUpdate();
         }
     }

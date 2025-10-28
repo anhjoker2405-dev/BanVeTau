@@ -296,6 +296,10 @@ public class ManQuanLiChuyenTau extends JPanel {
                     "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
+        
+    public void reloadData() {
+        SwingUtilities.invokeLater(this::loadTableData);
+    }
 
     private void handleAdd() {
         try {

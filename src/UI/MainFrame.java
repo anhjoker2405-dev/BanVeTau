@@ -1,10 +1,12 @@
 package ui;
 
+import dao.Ve_Dao;
 import entity.TaiKhoan;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -19,6 +21,10 @@ public class MainFrame extends JFrame {
     content.setBackground(Color.WHITE);      // <<< đổi nền trắng để hết viền xám
     content.setBorder(new EmptyBorder(0,0,0,0));
     }
+    
+    //CAYVL
+    private final BanVe banVePanel = new BanVe();
+    private final ManQuanLiChuyenTau quanLyChuyenTauPanel = new ManQuanLiChuyenTau();
     
 
     // Current user
@@ -57,6 +63,7 @@ public class MainFrame extends JFrame {
         JPanel sidebar = buildSidebar();      // << menu mới nền sáng, không header admin
         JPanel topbar = buildTopbar();
         buildCards();
+        banVePanel.setBookingCompletionListener(() -> quanLyChuyenTauPanel.reloadData());
         
 
         JPanel root = new JPanel(new BorderLayout());
@@ -67,10 +74,23 @@ public class MainFrame extends JFrame {
         setContentPane(root);
 
         cardLayout.show(content, "home");
-
     }
     
-    
+    private void openBanVe() {
+        try {
+            Ve_Dao.refreshExpiredTickets(0);
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Không thể cập nhật trạng thái vé đã hết hạn.\nVui lòng thử lại." +
+                            System.lineSeparator() + ex.getMessage(),
+                    "Lỗi cập nhật vé",
+                    JOptionPane.ERROR_MESSAGE
+            );
+        }
+        cardLayout.show(content, "banve");
+    }
 
     // Build Topbar
     private JPanel buildTopbar() {
@@ -142,7 +162,8 @@ public class MainFrame extends JFrame {
         // --------- Xử lý ----------
         JToggleButton btnXuLy = makeToggle("Xử lý");
         JPanel xlGroup = groupPanel(
-            makeChild("Bán vé",  () -> cardLayout.show(content, "banve")),
+//            makeChild("Bán vé",  () -> cardLayout.show(content, "banve")),
+            makeChild("Bán vé",  this::openBanVe),
             makeChild("Đổi vé",  () -> cardLayout.show(content, "doive")),
             makeChild("Trả vé",  () -> cardLayout.show(content, "trave"))
         );
@@ -366,7 +387,8 @@ public class MainFrame extends JFrame {
     private void buildCards() {
         content.add(buildHomePanel(), "home");
 
-        content.add(new BanVe(), "banve");
+        //content.add(new BanVe(), "banve");
+        content.add(banVePanel, "banve");
         content.add(new DoiVe(), "doive");
         content.add(new TraVe(), "trave");
 
@@ -375,7 +397,8 @@ public class MainFrame extends JFrame {
         content.add(new QuanLyTaiKhoanPanel(),     "quanly_taikhoan");
         content.add(new ManQuanLiNhanVien(),            "quanly_nhanvien");
         //content.add(simplePanel("Quản lý chuyến tàu"),     "quanly_chuyentau");
-        content.add(new ManQuanLiChuyenTau(),             "quanly_chuyentau");
+        //content.add(new ManQuanLiChuyenTau(),             "quanly_chuyentau");
+        content.add(quanLyChuyenTauPanel,             "quanly_chuyentau");
 
         content.add(new TimKiemChuyenDiPanel(),           "timkiem_chuyendi");
         content.add(simplePanel("Tìm kiếm khách hàng"),   "timkiem_khachhang");

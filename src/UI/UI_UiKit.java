@@ -43,12 +43,34 @@ class Ui {
         }
         return p;
     }
-    static JButton primary(String text){
+    static JButton primary(String text) {
         JButton b = new JButton(text);
-        b.setBackground(BLUE); b.setForeground(Color.WHITE);
+        b.setUI(new javax.swing.plaf.basic.BasicButtonUI()); // tránh lớp trắng của Nimbus
+        b.setBackground(new Color(0x1976D2)); // xanh dương chính
+        b.setForeground(Color.WHITE);
         b.setFocusPainted(false);
+        b.setOpaque(true);
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         b.setBorder(new EmptyBorder(8,16,8,16));
+
+        // Hiệu ứng hover
+        b.getModel().addChangeListener(e -> {
+            ButtonModel m = b.getModel();
+            if (!b.isEnabled()) {
+                b.setBackground(new Color(0xBBDEFB)); // nền nhạt khi disable
+                b.setForeground(new Color(0xE0E0E0));
+            } else if (m.isRollover()) {
+                b.setBackground(new Color(0x42A5F5)); // sáng hơn khi hover
+                b.setForeground(Color.WHITE);
+            } else if (m.isPressed()) {
+                b.setBackground(new Color(0x1565C0)); // đậm khi nhấn
+                b.setForeground(Color.WHITE);
+            } else {
+                b.setBackground(new Color(0x1976D2)); // mặc định
+                b.setForeground(Color.WHITE);
+            }
+        });
+
         return b;
     }
     static JTextField field(){

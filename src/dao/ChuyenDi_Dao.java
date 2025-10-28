@@ -10,6 +10,8 @@ import java.util.Date;
 import java.util.List;
 
 public class ChuyenDi_Dao {
+    
+    private final SeatAvailabilityDao seatAvailabilityDao = new SeatAvailabilityDao();
 
     public List<String> getAllGaDi() throws SQLException {
         String sql = "SELECT tenGa FROM Ga ORDER BY tenGa";
@@ -59,53 +61,61 @@ public class ChuyenDi_Dao {
                                  Date khoiHanhTu,
                                  Date khoiHanhDen /* không còn dùng */) throws SQLException {
 
-        StringBuilder sql = new StringBuilder(
+        StringBuilder where = new StringBuilder(" WHERE 1=1");
+
+        List<Object> params = new ArrayList<>();
+
+        if (maChuyen != null && !maChuyen.isBlank()) {
+            where.append(" AND ct.maChuyenTau LIKE ?");
+            params.add("%" + maChuyen.trim() + "%");
+        }
+        if (!isAll(gaDi)) {
+            where.append(" AND gDi.tenGa = ?");
+            params.add(gaDi.trim());
+        }
+        if (!isAll(gaDen)) {
+            where.append(" AND gDen.tenGa = ?");
+            params.add(gaDen.trim());
+        }
+        if (khoiHanhTu != null) {
+            where.append(" AND ct.thoiGianKhoiHanh >= ?");
+            params.add(new Timestamp(khoiHanhTu.getTime()));
+        }
+        
+        String selectSql =
             "SELECT ct.maChuyenTau, gDi.tenGa AS gaDi, gDen.tenGa AS gaDen, " +
-            "       ct.thoiGianKhoiHanh, ct.thoiGianKetThuc, t.tenTau, ct.soGheTrong " +
+            "       ct.thoiGianKhoiHanh, ct.thoiGianKetThuc, ct.maTau, t.tenTau, " +
+            "       CAST(ROUND(dbo.fn_KhoangCachKM(lt.maGaDi, lt.maGaDen) * lt.soTienMotKm, 0) AS decimal(12,0)) AS giaVe, " +
+            "       ct.soGheTrong " +
             "FROM ChuyenTau ct " +
             "JOIN LichTrinh lt ON lt.maLichTrinh = ct.maLichTrinh " +
             "JOIN Ga gDi  ON gDi.maGa  = lt.maGaDi " +
             "JOIN Ga gDen ON gDen.maGa = lt.maGaDen " +
             "JOIN Tau t   ON t.maTau   = ct.maTau " +
-            "WHERE 1=1 "
-        );
-
-        List<Object> params = new ArrayList<>();
-
-        if (maChuyen != null && !maChuyen.isBlank()) {
-            sql.append(" AND ct.maChuyenTau LIKE ?");
-            params.add("%" + maChuyen.trim() + "%");
-        }
-        if (!isAll(gaDi)) {
-            sql.append(" AND gDi.tenGa = ?");
-            params.add(gaDi.trim());
-        }
-        if (!isAll(gaDen)) {
-            sql.append(" AND gDen.tenGa = ?");
-            params.add(gaDen.trim());
-        }
-        if (khoiHanhTu != null) {
-            sql.append(" AND ct.thoiGianKhoiHanh >= ?");
-            params.add(new Timestamp(khoiHanhTu.getTime()));
-        }
-
-        sql.append(" ORDER BY ct.thoiGianKhoiHanh");
+            where +
+            " ORDER BY ct.thoiGianKhoiHanh";
 
         List<ChuyenTau> out = new ArrayList<>();
-        try (Connection con = ConnectDB.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql.toString())) {
-            for (int i = 0; i < params.size(); i++) ps.setObject(i + 1, params.get(i));
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    out.add(new ChuyenTau(
-                        rs.getString("maChuyenTau"),
-                        rs.getString("gaDi"),
-                        rs.getString("gaDen"),
-                        rs.getTimestamp("thoiGianKhoiHanh").toLocalDateTime(),
-                        rs.getTimestamp("thoiGianKetThuc").toLocalDateTime(),
-                        rs.getString("tenTau"),
-                        rs.getInt("soGheTrong")
-                    ));
+        try (Connection con = ConnectDB.getConnection()) {
+            seatAvailabilityDao.refreshAll(con);
+            try (PreparedStatement ps = con.prepareStatement(selectSql)) {
+                for (int i = 0; i < params.size(); i++) {
+                    ps.setObject(i + 1, params.get(i));
+                }
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        out.add(new ChuyenTau(
+                            rs.getString("maChuyenTau"),
+                            rs.getString("gaDi"),
+                            rs.getString("gaDen"),
+                            rs.getTimestamp("thoiGianKhoiHanh").toLocalDateTime(),
+                            rs.getTimestamp("thoiGianKetThuc").toLocalDateTime(),
+                            rs.getString("maTau"),
+                            rs.getString("tenTau"),
+                            rs.getInt("soGheTrong"),
+                            rs.getBigDecimal("giaVe")
+                        ));
+                    }
                 }
             }
         }

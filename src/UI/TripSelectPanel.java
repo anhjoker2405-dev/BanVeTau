@@ -6,6 +6,8 @@ import java.awt.*;
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
 import java.time.*;
+import java.math.BigDecimal;
+import java.text.NumberFormat;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.*;
@@ -211,15 +213,39 @@ public class TripSelectPanel extends JPanel {
 
 
             // Left: icon + code (link style)
-            JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT,8,0));
+            JPanel left = new JPanel(new BorderLayout(8,0));
             left.setOpaque(false);
             JLabel icon = new JLabel("\uD83D\uDE86"); // unicode 🚆
             icon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 22));
-            JLabel code = new JLabel(t.code);
-            code.setForeground(TEXT_BLUE);
-            code.setFont(BIG_FONT);
-            left.add(icon); left.add(code);
             icon.setBorder(new EmptyBorder(4, 0, 0, 0)); // đẩy icon xuống 4px
+            
+            JPanel trainInfo = new JPanel();
+            trainInfo.setLayout(new BoxLayout(trainInfo, BoxLayout.Y_AXIS));
+            trainInfo.setOpaque(false);
+
+            String trainCodeText = Optional.ofNullable(t.trainCode).filter(s -> !s.isBlank()).orElse("—");
+            JLabel trainCode = new JLabel(trainCodeText);
+            trainCode.setForeground(TEXT_BLUE);
+            trainCode.setFont(BIG_FONT);
+
+            String trainNameText = Optional.ofNullable(t.trainName).orElse("").trim();
+            JLabel trainName = new JLabel(trainNameText);
+            trainName.setFont(NORM_FONT);
+
+            JLabel tripCode = new JLabel("Mã chuyến: " + Optional.ofNullable(t.code).orElse(""));
+            tripCode.setFont(NORM_FONT.deriveFont(Font.PLAIN, 12f));
+            tripCode.setForeground(Color.DARK_GRAY);
+
+            trainInfo.add(trainCode);
+            trainInfo.add(Box.createVerticalStrut(2));
+            if (!trainNameText.isEmpty()) {
+                trainInfo.add(trainName);
+                trainInfo.add(Box.createVerticalStrut(2));
+            }
+            trainInfo.add(tripCode);
+
+            left.add(icon, BorderLayout.WEST);
+            left.add(trainInfo, BorderLayout.CENTER);
 
 
             // Center: timeline with arrow, stations, duration
@@ -405,21 +431,39 @@ public class TripSelectPanel extends JPanel {
         }
     }
 
-    private static String formatMoney(double v) {
-        return String.valueOf(v);
+    private static String formatMoney(BigDecimal value) {
+        if (value == null) {
+            return "—";
+        }
+        NumberFormat fmt = NumberFormat.getInstance(new Locale("vi", "VN"));
+        fmt.setMaximumFractionDigits(0);
+        fmt.setMinimumFractionDigits(0);
+        return fmt.format(value) + "đ";
     }
 
     // ======= Model =======
     public static class Trip {
         public final String code;
+        public final String trainCode;
+        public final String trainName;
         public final String departStation, arriveStation;
         public final LocalDateTime depart, arrive;
         public final int availableSeats;
-        public final double price;
-        public Trip(String code, String departStation, String arriveStation,
-                    LocalDateTime depart, LocalDateTime arrive, int availableSeats, double price) {
-            this.code = code; this.departStation = departStation; this.arriveStation = arriveStation;
-            this.depart = depart; this.arrive = arrive; this.availableSeats = availableSeats; this.price = price;
+        public final BigDecimal price;
+
+        public Trip(String code, String trainCode, String trainName,
+                    String departStation, String arriveStation,
+                    LocalDateTime depart, LocalDateTime arrive,
+                    int availableSeats, BigDecimal price) {
+            this.code = code;
+            this.trainCode = trainCode;
+            this.trainName = trainName;
+            this.departStation = departStation;
+            this.arriveStation = arriveStation;
+            this.depart = depart;
+            this.arrive = arrive;
+            this.availableSeats = availableSeats;
+            this.price = price;
         }
     }
 
@@ -427,46 +471,18 @@ public class TripSelectPanel extends JPanel {
     private static List<Trip> sampleTrips() {
         LocalDate d = LocalDate.of(2025,6,14);
         return Arrays.asList(
-            new Trip("TAU-014", "An Hòa", "Bảo Sơn",
+            new Trip("CT-0001", "TAU-014", "Tàu Bắc Nam", "An Hòa", "Bảo Sơn",
                 LocalDateTime.of(d, LocalTime.of(16,47)),
                 LocalDateTime.of(d, LocalTime.of(19,42)),
-                100, 115800.0),
-            new Trip("TAU-021", "An Hòa", "Bảo Sơn",
+                100, BigDecimal.valueOf(115800)),
+            new Trip("CT-0002", "TAU-021", "Tàu SE1", "An Hòa", "Bảo Sơn",
                 LocalDateTime.of(d, LocalTime.of(18,10)),
                 LocalDateTime.of(d, LocalTime.of(21,5)),
-                62, 129000.0),
-            new Trip("TAU-021", "An Hòa", "Bảo Sơn",
-                LocalDateTime.of(d, LocalTime.of(18,10)),
-                LocalDateTime.of(d, LocalTime.of(21,5)),
-                62, 129000.0),
-            new Trip("TAU-021", "An Hòa", "Bảo Sơn",
-                LocalDateTime.of(d, LocalTime.of(18,10)),
-                LocalDateTime.of(d, LocalTime.of(21,5)),
-                62, 129000.0),
-            new Trip("TAU-021", "An Hòa", "Bảo Sơn",
-                LocalDateTime.of(d, LocalTime.of(18,10)),
-                LocalDateTime.of(d, LocalTime.of(21,5)),
-                62, 129000.0),
-            new Trip("TAU-021", "An Hòa", "Bảo Sơn",
-                LocalDateTime.of(d, LocalTime.of(18,10)),
-                LocalDateTime.of(d, LocalTime.of(21,5)),
-                62, 129000.0),
-            new Trip("TAU-021", "An Hòa", "Bảo Sơn",
-                LocalDateTime.of(d, LocalTime.of(18,10)),
-                LocalDateTime.of(d, LocalTime.of(21,5)),
-                62, 129000.0),
-            new Trip("TAU-021", "An Hòa", "Bảo Sơn",
-                LocalDateTime.of(d, LocalTime.of(18,10)),
-                LocalDateTime.of(d, LocalTime.of(21,5)),
-                62, 129000.0),
-            new Trip("TAU-021", "An Hòa", "Bảo Sơn",
-                LocalDateTime.of(d, LocalTime.of(18,10)),
-                LocalDateTime.of(d, LocalTime.of(21,5)),
-                62, 129000.0),
-            new Trip("TAU-021", "An Hòa", "Bảo Sơn",
-                LocalDateTime.of(d, LocalTime.of(18,10)),
-                LocalDateTime.of(d, LocalTime.of(21,5)),
-                62, 129000.0)
+                62, BigDecimal.valueOf(129000)),
+            new Trip("CT-0003", "TAU-035", "Tàu SE2", "An Hòa", "Bảo Sơn",
+                LocalDateTime.of(d, LocalTime.of(19,30)),
+                LocalDateTime.of(d, LocalTime.of(22,15)),
+                80, BigDecimal.valueOf(158000))
             
         );
     }

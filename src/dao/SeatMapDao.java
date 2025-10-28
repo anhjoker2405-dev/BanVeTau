@@ -23,7 +23,7 @@ public class SeatMapDao {
         "SELECT tt.maToa, tt.soToa, tt.maTau, tt.soKhoangTau, " +
         "       kt.maKhoangTau, kt.tenKhoangTau, kt.soLuongGhe, " +
         "       g.maGhe, g.soGhe, g.maLoaiGhe, " +
-        "       CASE WHEN EXISTS (SELECT 1 FROM Ve v WHERE v.maChuyenTau = ct.maChuyenTau AND v.maGhe = g.maGhe AND v.trangThai<>N'Đã hủy') " +
+        "       CASE WHEN EXISTS (SELECT 1 FROM Ve v WHERE v.maChuyenTau = ct.maChuyenTau AND v.maGhe = g.maGhe AND v.trangThai IN (N'Đã bán', N'Đã đổi')) " +
         "            THEN 1 ELSE 0 END AS daBan " +
         "FROM ChuyenTau ct " +
         "JOIN ToaTau tt   ON tt.maTau = ct.maTau " +

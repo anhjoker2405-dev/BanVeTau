@@ -12,25 +12,26 @@ public class ChuyenTau {
     private final String gaDen;
     private final LocalDateTime thoiGianKhoiHanh;
     private final LocalDateTime thoiGianKetThuc;
+    private final String maTau;
     private final String tenTau;
+    private final BigDecimal giaVe;
     private int soGheTrong;
     private int quangDuongDiChuyen;
 
-    
-//constructor
-public ChuyenTau(String maChuyenTau, String gaDi, String gaDen,
-                LocalDateTime thoiGianKhoiHanh, LocalDateTime thoiGianKetThuc,
-                String tenTau, int soGheTrong)
-
-    {
+    // constructor
+    public ChuyenTau(String maChuyenTau, String gaDi, String gaDen,
+                     LocalDateTime thoiGianKhoiHanh, LocalDateTime thoiGianKetThuc,
+                     String maTau, String tenTau, int soGheTrong, BigDecimal giaVe) {
         this.maChuyenTau = maChuyenTau;
         this.gaDi = gaDi;
         this.gaDen = gaDen;
         this.thoiGianKhoiHanh = thoiGianKhoiHanh;
         this.thoiGianKetThuc = thoiGianKetThuc;
+        this.maTau = maTau;
         this.tenTau = tenTau;
         this.soGheTrong = soGheTrong;
-        this.quangDuongDiChuyen = quangDuongDiChuyen; 
+        this.giaVe = giaVe;
+        this.quangDuongDiChuyen = quangDuongDiChuyen;
         
     }
 
@@ -53,13 +54,21 @@ public ChuyenTau(String maChuyenTau, String gaDi, String gaDen,
     public LocalDateTime getThoiGianKetThuc() {
         return thoiGianKetThuc;
     }
+    
+    public String getMaTau() {
+        return maTau;
+    }
 
     public String getTenTau() {
         return tenTau;
     }
     
+    public BigDecimal getGiaVe() {
+        return giaVe;
+    }
+    
     public int getSoGheTrong() {
-    return soGheTrong;
+        return soGheTrong;
     }
 
     public void setSoGheTrong(int soGheTrong) {

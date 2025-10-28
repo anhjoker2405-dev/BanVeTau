@@ -18,6 +18,8 @@ import entity.Ga;
 import entity.Tau;
 
 public class ChuyenTauDao {
+    
+    private final SeatAvailabilityDao seatAvailabilityDao = new SeatAvailabilityDao();
 
     public List<Ga> fetchGaOptions() throws SQLException {
         String sql = "SELECT maGa, tenGa FROM Ga ORDER BY tenGa";
