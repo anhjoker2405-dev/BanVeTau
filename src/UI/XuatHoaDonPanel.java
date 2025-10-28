@@ -79,7 +79,7 @@ public class XuatHoaDonPanel extends JPanel {
         CardPanel header = new CardPanel(new BorderLayout());
         header.setBorder(new EmptyBorder(18, 24, 18, 24));
 
-        JLabel title = new JLabel("Tìm kiếm hóa đơn");
+        JLabel title = new JLabel("Xuất hóa đơn");
         title.setFont(TITLE_FONT.deriveFont(20f));
         title.setForeground(new Color(33, 56, 110));
 
