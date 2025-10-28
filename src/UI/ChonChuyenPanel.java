@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.*;
 import java.util.function.Consumer;
 
-public class TripSelectPanel extends JPanel {
+public class ChonChuyenPanel extends JPanel {
 
     // ====== Style ======
     private static final Color STEP_ACTIVE    = new Color(31, 133, 230);
@@ -36,7 +36,7 @@ public class TripSelectPanel extends JPanel {
     private JButton btnBack;
     private Consumer<Trip> chooseTripListener;
 
-    public TripSelectPanel() {
+    public ChonChuyenPanel() {
         setLayout(new BorderLayout(12,12));
         setBorder(new EmptyBorder(10,12,10,12));
         setBackground(Color.WHITE);
@@ -538,7 +538,7 @@ public class TripSelectPanel extends JPanel {
         SwingUtilities.invokeLater(() -> {
             JFrame f = new JFrame("Chọn chuyến");
             f.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-            f.setContentPane(new TripSelectPanel());
+            f.setContentPane(new ChonChuyenPanel());
             // mở toàn màn hình
             f.pack();
             f.setExtendedState(JFrame.MAXIMIZED_BOTH);

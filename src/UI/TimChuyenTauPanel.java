@@ -10,7 +10,7 @@ import javax.swing.plaf.basic.BasicSplitPaneDivider;
 import javax.swing.plaf.basic.BasicSplitPaneUI;
 import com.toedter.calendar.JDateChooser;
 
-public class SearchTripPanel extends JPanel {
+public class TimChuyenTauPanel extends JPanel {
 
     // Exposed form fields for integration
     private JComboBox<String> cbGaDi;
@@ -21,7 +21,7 @@ public class SearchTripPanel extends JPanel {
     private JDateChooser dcNgayVe;
     private JButton btnTimKiem;
 
-    public SearchTripPanel() {
+    public TimChuyenTauPanel() {
         setLayout(new BorderLayout());
         setBackground(Color.WHITE);
         setBorder(new EmptyBorder(10, 10, 10, 10));
@@ -350,7 +350,7 @@ public class SearchTripPanel extends JPanel {
             f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             f.setExtendedState(JFrame.MAXIMIZED_BOTH);
             f.setLocationByPlatform(true);
-            f.setContentPane(new SearchTripPanel());
+            f.setContentPane(new TimChuyenTauPanel());
             f.setVisible(true);
         });
     }

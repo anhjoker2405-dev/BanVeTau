@@ -12,6 +12,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.text.NumberFormat;
 import util.AppSession;
+import util.InvoicePdfExporter;
+import util.InvoicePreviewDialog;
 import dao.ChuyenDi_Dao;
 import dao.HanhKhach_Dao;
 import dao.NhanVien_Dao;
@@ -41,7 +43,7 @@ public class BanVe extends JPanel {
 
     private TrainInfo currentTrain;
     private final List<TicketSelection> selections = new ArrayList<>();
-    private TripSelectPanel.Trip selectedTrip;
+    private ChonChuyenPanel.Trip selectedTrip;
     private Runnable bookingCompletionListener;
 
     public BanVe() {
@@ -55,8 +57,6 @@ public class BanVe extends JPanel {
         cards.add(page2, "p2");
         cards.add(page3, "p3");
         add(cards, BorderLayout.CENTER);
-        
-        page3.setMode(ManThanhToan.Mode.BOOKING);
         
         page2.addBackActionListener(e -> showStep(1));
         page2.addNextActionListener(e -> handleSeatSelectionNext());
@@ -88,8 +88,8 @@ public class BanVe extends JPanel {
         private final CardLayout subCards = new CardLayout();
         private final JPanel subPanel = new JPanel(subCards);
 
-        private final SearchTripPanel searchPanel = new SearchTripPanel();
-        private final TripSelectPanel resultPanel = new TripSelectPanel();
+        private final TimChuyenTauPanel searchPanel = new TimChuyenTauPanel();
+        private final ChonChuyenPanel resultPanel = new ChonChuyenPanel();
         
         private String lastGaDi;
         private String lastGaDen;
@@ -133,28 +133,28 @@ public class BanVe extends JPanel {
             lastGaDen = gaDen;
             lastNgay = ngay;
 
-            List<TripSelectPanel.Trip> trips = queryTrips(gaDi, gaDen, ngay);
+            List<ChonChuyenPanel.Trip> trips = queryTrips(gaDi, gaDen, ngay);
             resultPanel.setContext(gaDi != null ? gaDi : "", gaDen != null ? gaDen : "", ngay);
             resultPanel.setTrips(trips);
             subCards.show(subPanel, "result");
             showingResults = true;
         }
 
-        private List<TripSelectPanel.Trip> queryTrips(String gaDi, String gaDen, LocalDate ngay) {
+        private List<ChonChuyenPanel.Trip> queryTrips(String gaDi, String gaDen, LocalDate ngay) {
             if (ngay == null) {
                 return java.util.Collections.emptyList();
             }
 
             java.time.LocalDateTime from = ngay.atStartOfDay();
             java.time.LocalDateTime to = ngay.atTime(23, 59, 59);
-            List<TripSelectPanel.Trip> trips = new ArrayList<>();
+            List<ChonChuyenPanel.Trip> trips = new ArrayList<>();
             try {
                 dao.ChuyenDi_Dao dao = new dao.ChuyenDi_Dao();
                 java.util.Date dFrom = java.util.Date.from(from.atZone(java.time.ZoneId.systemDefault()).toInstant());
                 java.util.Date dTo = java.util.Date.from(to.atZone(java.time.ZoneId.systemDefault()).toInstant());
                 List<ChuyenTau> rs = dao.search(null, gaDi, gaDen, dFrom, dTo);
                 for (ChuyenTau cd : rs) {
-                    trips.add(new TripSelectPanel.Trip(
+                    trips.add(new ChonChuyenPanel.Trip(
                             cd.getMaChuyenTau(),
                             cd.getMaTau(),
                             cd.getTenTau(),
@@ -190,7 +190,7 @@ public class BanVe extends JPanel {
 
 
     // ======================= PAGE 2 =======================
-    private void handleTripSelection(TripSelectPanel.Trip trip) {
+    private void handleTripSelection(ChonChuyenPanel.Trip trip) {
         if (trip == null) {
             return;
         }
@@ -359,18 +359,50 @@ public class BanVe extends JPanel {
 
             JOptionPane.showMessageDialog(this,
                 "Thanh toán thành công!\nMã HĐ: " + maHD + "\nTổng tiền: " + formatVND(tong));
-            selections.clear();
-            page3.setSelections(java.util.Collections.emptyList());
-            showStep(1);
-            if (bookingCompletionListener != null) {
-                SwingUtilities.invokeLater(bookingCompletionListener);
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Có lỗi khi lưu dữ liệu: " + ex.getMessage(),
-                    "Lỗi", JOptionPane.ERROR_MESSAGE);
-        }
-    }
+         // Hỏi người dùng có muốn xuất hoá đơn PDF không
+		int choice = JOptionPane.showConfirmDialog(this,
+		        "Bạn có muốn xuất hoá đơn (PDF) không?",
+		        "Xuất hoá đơn",
+		        JOptionPane.YES_NO_OPTION,
+		        JOptionPane.QUESTION_MESSAGE);
+		if (choice == JOptionPane.YES_OPTION) {
+		    //  Xuất hoá đơn PDF sau khi thanh toán thành công 
+		    try {
+		        java.util.List<String> seatLines = new java.util.ArrayList<>();
+		        for (TicketSelection ts : selections) {
+		            seatLines.add(String.format("Toa %d Ghế %d (%s)", ts.getCar(), ts.getSeatNumber(), ts.getSeatId()));
+		        }
+		        int donGiaInt = unit != null ? unit.intValue() : 0;
+		        java.util.List<String> lines = InvoicePdfExporter.buildLines(
+		            maHD,
+		            tenHK, sdtHK,
+		            currentTrain != null ? currentTrain.getCode() : null,
+		            currentTrain != null ? currentTrain.getRoute() : null,
+		            currentTrain != null ? currentTrain.getDepart() : null,
+		            seatLines,
+		            selections.size(),
+		            new java.math.BigDecimal(donGiaInt), // ← ép sang BigDecimal
+		            vat                                  // ← giữ nguyên
+		        );
+		        InvoicePreviewDialog.showPreview(this, "HÓA ĐƠN BÁN VÉ", lines);
+
+		    } catch (Exception ex) {
+		        ex.printStackTrace();
+		        JOptionPane.showMessageDialog(this, "Xuất PDF thất bại: " + ex.getMessage());
+		    }
+		}
+		            selections.clear();
+		page3.setSelections(java.util.Collections.emptyList());
+		            showStep(1);
+		            if (bookingCompletionListener != null) {
+		                SwingUtilities.invokeLater(bookingCompletionListener);
+		            }
+		        } catch (Exception ex) {
+		            ex.printStackTrace();
+		            JOptionPane.showMessageDialog(this, "Có lỗi khi lưu dữ liệu: " + ex.getMessage(),
+		                    "Lỗi", JOptionPane.ERROR_MESSAGE);
+		        }
+		    }
 
     // =======================END PAGE 3 =======================
     
