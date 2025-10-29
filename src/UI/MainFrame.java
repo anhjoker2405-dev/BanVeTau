@@ -48,7 +48,7 @@ public class MainFrame extends JFrame {
     // Helper: kiểm tra quyền quản lý
     private boolean isManager() {
         String role = (tk != null ? tk.getLoaiTK() : null);
-        return role != null && role.equalsIgnoreCase("NhanVienQuanLy");
+        return role != null && role.equalsIgnoreCase("LTK-01");
     }
 
     // Constructor
