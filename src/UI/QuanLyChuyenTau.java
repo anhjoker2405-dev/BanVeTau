@@ -49,7 +49,7 @@ public class QuanLyChuyenTau extends JPanel {
     // ===== Table =====
     // ĐÃ XOÁ “Số Ghế” và “Số Ghế Đã Đặt”
     private final DefaultTableModel model = new DefaultTableModel(new String[]{
-            "Mã Chuyến Tàu","Ga Đi","Ga Đến","Thời Gian Đi",
+            "Mã Chuyến Tàu","Ga Đi","Ga Đến",
             "Thời Gian Khởi Hành","Thời Gian Dự Tính","Tàu Di Chuyển",
             "Toa","Khoang","Loại Ghế","Số Ghế Còn Trống"
     }, 0) { @Override public boolean isCellEditable(int r,int c){ return false; } };
@@ -136,8 +136,8 @@ public class QuanLyChuyenTau extends JPanel {
 
     /** Viewport bảng: bo góc + padding + STYLE như TimKiemChuyenDiPanel */
     private JPanel buildTableCard() {
-        // tỉ lệ cột ban đầu (đã giảm còn 11 cột)
-        int[] widths = {120,110,120,100,140,140,150,70,80,110,120};
+        // tỉ lệ cột ban đầu (đã giảm còn 10 cột)
+        int[] widths = {120,110,120,140,140,150,70,80,110,120};
         for (int i = 0; i < widths.length; i++)
             table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
 
@@ -281,7 +281,6 @@ public class QuanLyChuyenTau extends JPanel {
                         info.getMaChuyenTau(),
                         info.getGaDi(),
                         info.getGaDen(),
-                        formatDuration(info.getThoiGianDi()),
                         formatDateTime(info.getThoiGianKhoiHanh()),
                         formatDateTime(info.getThoiGianDuTinh()),
                         info.getTenTau(),

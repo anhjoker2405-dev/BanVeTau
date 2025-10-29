@@ -35,7 +35,7 @@ public class RolePermissionDao {
         }
 
         if (permission == null) {
-            permission = new RolePermission(maLoai, account.getTenLoaiTK(), null);
+            permission = new RolePermission(maLoai, account.getTenLoaiTK(), null, null);
         }
 
         return permission != null ? permission : RolePermission.unknown();
@@ -45,7 +45,7 @@ public class RolePermissionDao {
         if (maLoai == null) {
             return null;
         }
-        final String sql = "SELECT maLoaiTK, tenLoaiTK, quyenHan FROM LoaiTaiKhoan WHERE maLoaiTK = ?";
+        final String sql = "SELECT maLoaiTK, tenLoaiTK, moTa, quyenHan FROM LoaiTaiKhoan WHERE maLoaiTK = ?";
         try (Connection con = ConnectDB.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, maLoai);
@@ -65,7 +65,7 @@ public class RolePermissionDao {
             return null;
         }
         final String sql = """
-            SELECT tk.maLoaiTK, ltk.tenLoaiTK, ltk.quyenHan
+            ELECT tk.maLoaiTK, ltk.tenLoaiTK, ltk.moTa, ltk.quyenHan
             FROM TaiKhoan tk
             LEFT JOIN LoaiTaiKhoan ltk ON ltk.maLoaiTK = tk.maLoaiTK
             WHERE tk.maTK = ?
@@ -88,6 +88,7 @@ public class RolePermissionDao {
         return new RolePermission(
                 trim(rs.getString("maLoaiTK")),
                 trim(rs.getString("tenLoaiTK")),
+                trim(rs.getString("moTa")),
                 trim(rs.getString("quyenHan"))
         );
     }
@@ -106,16 +107,18 @@ public class RolePermissionDao {
     public static class RolePermission {
         private final String maLoaiTK;
         private final String tenLoaiTK;
+        private final String moTa;
         private final String quyenHan;
 
-        private RolePermission(String maLoaiTK, String tenLoaiTK, String quyenHan) {
+        private RolePermission(String maLoaiTK, String tenLoaiTK, String moTa, String quyenHan) {
             this.maLoaiTK = maLoaiTK;
             this.tenLoaiTK = tenLoaiTK;
+            this.moTa = moTa;
             this.quyenHan = quyenHan;
         }
 
         public static RolePermission unknown() {
-            return new RolePermission(null, null, null);
+            return new RolePermission(null, null, null, null);
         }
 
         public String getMaLoaiTK() {
@@ -124,6 +127,10 @@ public class RolePermissionDao {
 
         public String getTenLoaiTK() {
             return tenLoaiTK;
+        }
+        
+        public String getMoTa() {
+            return moTa;
         }
 
         public String getQuyenHan() {

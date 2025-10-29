@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.Locale;
+import java.math.RoundingMode;
 
 public class ManChonGheNgoi extends JPanel {
 
@@ -82,6 +83,9 @@ public class ManChonGheNgoi extends JPanel {
     private JTextField commonCccdField;
     private String currentMaChuyenTau;
     private BigDecimal currentFare;
+    private static final BigDecimal DISCOUNT_NONE = BigDecimal.ZERO;
+    private static final BigDecimal DISCOUNT_STUDENT = new BigDecimal("0.10");
+    private static final BigDecimal DISCOUNT_SENIOR = new BigDecimal("0.15");
     private final DecimalFormat currencyFormat;
     private SeatSelectionListener seatSelectionListener;
     private boolean updatingSelection;
@@ -702,12 +706,22 @@ public class ManChonGheNgoi extends JPanel {
         c.gridwidth=1;
 
         c.gridx=0; c.gridy=5; c.weightx=0;
+        JLabel discountLabelTitle = new JLabel("Giảm Giá");
+        card.add(discountLabelTitle, c);
+        c.gridx=1; c.weightx=1; c.gridwidth=3;
+        JLabel discountValueLabel = new JLabel();
+        discountValueLabel.setForeground(new Color(0x2E7D32));
+        form.discountValueLabel = discountValueLabel;
+        card.add(discountValueLabel, c);
+        c.gridwidth=1;
+
+        c.gridx=0; c.gridy=6; c.weightx=0;
         JLabel priceLabel = new JLabel("Tiền Vé");
         priceLabel.setForeground(RED_PRIMARY);
         card.add(priceLabel, c);
         c.gridx=1; c.weightx=1; c.gridwidth=3;
-        
-        JTextField priceField = new JTextField(formatCurrency(currentFare));
+
+        JTextField priceField = new JTextField();
         priceField.setHorizontalAlignment(JTextField.RIGHT);
         priceField.setEditable(false);
         priceField.setFocusable(false);
@@ -715,6 +729,9 @@ public class ManChonGheNgoi extends JPanel {
         form.priceField = priceField;
         card.add(priceField, c);
         c.gridwidth=1;
+        
+        ticketTypeCombo.addActionListener(e -> updateTicketPriceForForm(form));
+        updateTicketPriceForForm(form);
         
         form.container = card;
         return form;
@@ -762,12 +779,77 @@ public class ManChonGheNgoi extends JPanel {
     }
 
     private void updateTicketPriceFields() {
-        String priceText = formatCurrency(currentFare);
         for (TicketForm form : ticketForms.values()) {
-            if (form.priceField != null) {
-                form.priceField.setText(priceText);
+            updateTicketPriceForForm(form);
+        }
+    }
+
+    private void updateTicketPriceForForm(TicketForm form) {
+        if (form == null) {
+            return;
+        }
+        ComboItem ticketTypeItem = form.ticketTypeCombo != null
+                ? (ComboItem) form.ticketTypeCombo.getSelectedItem()
+                : null;
+        BigDecimal discountRate = getDiscountRate(ticketTypeItem);
+        BigDecimal discountedFare = calculateDiscountedFare(currentFare, discountRate);
+        form.discountedFare = discountedFare;
+
+        if (form.discountValueLabel != null) {
+            form.discountValueLabel.setText(formatDiscountText(discountRate));
+        }
+
+        if (form.priceField != null) {
+            if (currentFare == null) {
+                form.priceField.setText("");
+            } else {
+                form.priceField.setText(formatCurrency(discountedFare));
             }
         }
+    }
+    private BigDecimal calculateDiscountedFare(BigDecimal baseFare, BigDecimal discountRate) {
+        if (baseFare == null) {
+            return null;
+        }
+        BigDecimal effectiveRate = discountRate != null ? discountRate : DISCOUNT_NONE;
+        BigDecimal multiplier = BigDecimal.ONE.subtract(effectiveRate);
+        return baseFare.multiply(multiplier).setScale(0, RoundingMode.HALF_UP);
+    }
+
+    private String formatDiscountText(BigDecimal discountRate) {
+        if (discountRate == null || discountRate.compareTo(BigDecimal.ZERO) <= 0) {
+            return "Không áp dụng";
+        }
+        BigDecimal percentage = discountRate.multiply(BigDecimal.valueOf(100));
+        String text = percentage.stripTrailingZeros().toPlainString();
+        return text + "%";
+    }
+
+    private BigDecimal getDiscountRate(ComboItem ticketTypeItem) {
+        if (ticketTypeItem == null) {
+            return DISCOUNT_NONE;
+        }
+
+        String value = ticketTypeItem.getValue() != null
+                ? ticketTypeItem.getValue().trim().toLowerCase(Locale.ROOT)
+                : "";
+        switch (value) {
+            case "lv-002":
+                return DISCOUNT_STUDENT;
+            case "lv-003":
+                return DISCOUNT_SENIOR;
+        }
+
+        String label = ticketTypeItem.getLabel() != null
+                ? ticketTypeItem.getLabel().toLowerCase(Locale.ROOT)
+                : "";
+        if (label.contains("học sinh") || label.contains("sinh viên")) {
+            return DISCOUNT_STUDENT;
+        }
+        if (label.contains("cao tuổi") || label.contains("người cao tuổi")) {
+            return DISCOUNT_SENIOR;
+        }
+        return DISCOUNT_NONE;
     }
     
     public BigDecimal getFarePerSeat() {
@@ -796,7 +878,14 @@ public class ManChonGheNgoi extends JPanel {
             String maLoaiVe = ticketTypeItem != null ? ticketTypeItem.getValue() : null;
             String tenLoaiVe = ticketTypeItem != null ? ticketTypeItem.getLabel() : null;
 
-            BigDecimal giaVe = currentFare != null ? currentFare : BigDecimal.ZERO;
+            BigDecimal giaVe;
+            if (form.discountedFare != null) {
+                giaVe = form.discountedFare;
+            } else if (currentFare != null) {
+                giaVe = currentFare;
+            } else {
+                giaVe = BigDecimal.ZERO;
+            }
 
             result.add(new PassengerInfo(seat, hoTen, soDienThoai, cccd, namSinh,
                     maGioiTinh, tenGioiTinh, maLoaiVe, tenLoaiVe, giaVe));
@@ -925,6 +1014,8 @@ public class ManChonGheNgoi extends JPanel {
         JComboBox<String> yearCombo;
         JComboBox<ComboItem> ticketTypeCombo;
         JTextField priceField;
+        JLabel discountValueLabel;
+        BigDecimal discountedFare;
     }
 
     private String formatCurrency(BigDecimal amount) {

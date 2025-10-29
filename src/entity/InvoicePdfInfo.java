@@ -18,6 +18,9 @@ public class InvoicePdfInfo {
     private String dienThoaiKhachHang;
     private BigDecimal vatRate = BigDecimal.ZERO;         // dạng thập phân, ví dụ 0.10
     private BigDecimal vatRatePercent = BigDecimal.ZERO;  // dạng phần trăm, ví dụ 10.00
+    private String maKhuyenMai;
+    private BigDecimal promotionRate = BigDecimal.ZERO;        // dạng thập phân, ví dụ 0.05
+    private BigDecimal promotionRatePercent = BigDecimal.ZERO; // dạng phần trăm, ví dụ 5.00
 
     private final List<InvoicePdfItem> items = new ArrayList<>();
 
@@ -83,6 +86,30 @@ public class InvoicePdfInfo {
 
     public void setVatRatePercent(BigDecimal vatRatePercent) {
         this.vatRatePercent = vatRatePercent != null ? vatRatePercent : BigDecimal.ZERO;
+    }
+    
+    public String getMaKhuyenMai() {
+        return maKhuyenMai;
+    }
+
+    public void setMaKhuyenMai(String maKhuyenMai) {
+        this.maKhuyenMai = maKhuyenMai;
+    }
+
+    public BigDecimal getPromotionRate() {
+        return promotionRate != null ? promotionRate : BigDecimal.ZERO;
+    }
+
+    public void setPromotionRate(BigDecimal promotionRate) {
+        this.promotionRate = promotionRate != null ? promotionRate : BigDecimal.ZERO;
+    }
+
+    public BigDecimal getPromotionRatePercent() {
+        return promotionRatePercent != null ? promotionRatePercent : BigDecimal.ZERO;
+    }
+
+    public void setPromotionRatePercent(BigDecimal promotionRatePercent) {
+        this.promotionRatePercent = promotionRatePercent != null ? promotionRatePercent : BigDecimal.ZERO;
     }
 
     public List<InvoicePdfItem> getItems() {

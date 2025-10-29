@@ -1,7 +1,6 @@
-package ui; // Hoặc package UI của bạn
+package ui;
 
-// Import các lớp cần thiết
-import dao.KhuyenMai_Dao; // Sửa tên này nếu file DAO của bạn khác
+import dao.KhuyenMai_Dao;
 import entity.KhuyenMai;
 
 import javax.swing.*;
@@ -15,13 +14,17 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.List;
+import java.util.regex.Pattern;
 
 /**
  * TimKiemKhuyenMaiPanel
- * Giữ NGUYÊN CHỨC NĂNG (DAO, lọc bằng ô tìm kiếm, TableRowSorter),
- * CHỈ thay đổi STYLE để đồng bộ với TimKiemChuyenDiPanel
- * và bổ sung 2 nút: "Tìm khuyến mãi" (reload từ CSDL) & "Làm mới".
+ * GIỮ NGUYÊN CHỨC NĂNG (DAO, lọc bằng ô tìm kiếm, TableRowSorter),
+ * CHỈ thay đổi STYLE + hiển thị format + comparator sort.
  */
 public class TimKiemKhuyenMaiPanel extends JPanel {
 
@@ -30,6 +33,8 @@ public class TimKiemKhuyenMaiPanel extends JPanel {
     private static final Font SECTION_FONT = new Font("SansSerif", Font.BOLD, 16);
     private static final Color ACCENT_COLOR = new Color(66, 133, 244);
     private static final Color ACCENT_DARKER = new Color(52, 103, 188);
+
+    private static final DateTimeFormatter DATE_TIME_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     // ===== Fields giữ nguyên chức năng =====
     private JTable tblKetQua;
@@ -43,12 +48,10 @@ public class TimKiemKhuyenMaiPanel extends JPanel {
     public TimKiemKhuyenMaiPanel() {
         khuyenMaiDAO = new KhuyenMai_Dao();
 
-        // Tổng thể đồng bộ với TimKiemChuyenDiPanel
         setOpaque(false);
         setLayout(new BorderLayout(16, 16));
         setBorder(new EmptyBorder(24, 24, 24, 24));
 
-        // Header + Filter + Table đặt trong các "CardPanel" giống panel chuyến đi
         JPanel north = new JPanel(new BorderLayout(0, 16));
         north.setOpaque(false);
         north.add(buildHeaderPanel(), BorderLayout.NORTH);
@@ -57,12 +60,11 @@ public class TimKiemKhuyenMaiPanel extends JPanel {
         add(north, BorderLayout.NORTH);
         add(buildTablePanel(), BorderLayout.CENTER);
 
-        // 3. Tải dữ liệu và Thêm sự kiện (GIỮ NGUYÊN + thêm click cho nút)
         loadDataToTable();
         addEvents();
     }
 
-    // ===== Header giống chuyến đi =====
+    // ===== Header =====
     private JPanel buildHeaderPanel() {
         CardPanel header = new CardPanel(new BorderLayout());
         header.setBorder(new EmptyBorder(18, 24, 18, 24));
@@ -85,7 +87,7 @@ public class TimKiemKhuyenMaiPanel extends JPanel {
         return header;
     }
 
-    // ===== Filter: label + textfield + 2 nút bên phải =====
+    // ===== Filter =====
     private JPanel buildFilterPanel() {
         CardPanel panel = new CardPanel(new GridBagLayout());
         panel.setBorder(new EmptyBorder(20, 24, 12, 24));
@@ -104,7 +106,7 @@ public class TimKiemKhuyenMaiPanel extends JPanel {
         gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 1;
         panel.add(txtSearch, gbc);
 
-        // Action buttons (canh phải như panel chuyến đi)
+        // Action buttons (canh phải)
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
         actions.setOpaque(false);
         btnLamMoi = new JButton("Làm mới");
@@ -122,6 +124,15 @@ public class TimKiemKhuyenMaiPanel extends JPanel {
         btnTim.addActionListener(this::onSearchClick);
         btnLamMoi.addActionListener(this::onResetClick);
 
+        // Phím tắt: Enter tìm, Esc làm mới, Ctrl+L focus ô tìm
+        txtSearch.addKeyListener(new KeyAdapter() {
+            @Override public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ENTER) onSearchClick(null);
+                else if (e.getKeyCode() == KeyEvent.VK_ESCAPE) onResetClick(null);
+                else if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_L) txtSearch.requestFocus();
+            }
+        });
+
         return panel;
     }
 
@@ -135,19 +146,15 @@ public class TimKiemKhuyenMaiPanel extends JPanel {
 
         String[] columnNames = {"Mã KM", "Tên KM", "Giảm Giá", "Ngày Bắt Đầu", "Ngày Kết Thúc", "Mô Tả"};
         tableModel = new DefaultTableModel(columnNames, 0) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false; // Không cho phép sửa trực tiếp trên bảng
-            }
+            @Override public boolean isCellEditable(int row, int column) { return false; }
         };
         tblKetQua = new JTable(tableModel);
         tblKetQua.setRowHeight(28);
 
-        // GIỮ: bộ lọc Sorter dựa trên model để applyFilter() hoạt động như cũ
         sorter = new TableRowSorter<>(tableModel);
         tblKetQua.setRowSorter(sorter);
+        configureSorters(); // sắp xếp “đúng số” & “đúng ngày”
 
-        // ======= STYLE bảng giống TimKiemChuyenDiPanel =======
         styleTable(tblKetQua);
 
         JScrollPane scrollPane = new JScrollPane(tblKetQua);
@@ -161,9 +168,8 @@ public class TimKiemKhuyenMaiPanel extends JPanel {
 
     // ================== EVENTS ==================
     private void onSearchClick(ActionEvent e) {
-        // Reload từ CSDL rồi áp bộ lọc hiện tại
-        loadDataToTable();
-        applyFilter();
+        loadDataToTable(); // reload từ DB
+        applyFilter();     // áp bộ lọc hiện tại
     }
     private void onResetClick(ActionEvent e) {
         txtSearch.setText("");
@@ -172,7 +178,7 @@ public class TimKiemKhuyenMaiPanel extends JPanel {
         txtSearch.requestFocus();
     }
 
-    // ================== STYLE HELPERS (copy tinh thần từ TimKiemChuyenDiPanel) ==================
+    // ================== STYLE HELPERS ==================
     private static void styleTable(JTable table) {
         table.setIntercellSpacing(new Dimension(0, 0));
         table.setShowGrid(false);
@@ -230,7 +236,7 @@ public class TimKiemKhuyenMaiPanel extends JPanel {
         });
     }
 
-    // CardPanel dùng lại phong cách nền trắng bo góc + viền như panel chuyến đi
+    // CardPanel nền trắng bo góc
     private static class CardPanel extends JPanel {
         CardPanel(LayoutManager layout) { super(layout); setOpaque(false); }
         @Override protected void paintComponent(Graphics g) {
@@ -247,47 +253,94 @@ public class TimKiemKhuyenMaiPanel extends JPanel {
 
     // ================== GIỮ NGUYÊN CHỨC NĂNG ==================
 
-    /**
-     * Tải toàn bộ dữ liệu từ CSDL vào JTable
-     */
+    /** Tải toàn bộ dữ liệu từ CSDL vào JTable */
     private void loadDataToTable() {
         tableModel.setRowCount(0); // Xóa dữ liệu cũ
         List<KhuyenMai> ds = khuyenMaiDAO.getAllKhuyenMai();
         for (KhuyenMai km : ds) {
             Object[] row = {
-                    km.getMaKhuyenMai(),
-                    km.getTenKhuyenMai(),
-                    km.getGiamGia(),
-                    km.getNgayBatDau(),
-                    km.getNgayKetThuc(),
-                    km.getMoTa()
+                    nullToBlank(km.getMaKhuyenMai()),
+                    nullToBlank(km.getTenKhuyenMai()),
+                    formatPercent(km.getGiamGia()),              // "15%"
+                    formatDateTime(km.getNgayBatDau()),          // "dd/MM/yyyy HH:mm"
+                    formatDateTime(km.getNgayKetThuc()),
+                    nullToBlank(km.getMoTa())
             };
             tableModel.addRow(row);
         }
     }
 
-    /**
-     * Thêm sự kiện cho ô tìm kiếm (gõ tới đâu lọc tới đó)
-     */
+    /** Thêm sự kiện cho ô tìm kiếm (gõ tới đâu lọc tới đó) */
     private void addEvents() {
         txtSearch.addKeyListener(new KeyAdapter() {
-            @Override
-            public void keyReleased(KeyEvent e) {
-                applyFilter();
-            }
+            @Override public void keyReleased(KeyEvent e) { applyFilter(); }
         });
     }
 
-    /**
-     * Lọc dữ liệu JTable dựa trên nội dung ô tìm kiếm
-     */
+    /** Lọc dữ liệu JTable dựa trên nội dung ô tìm kiếm */
     private void applyFilter() {
         String keyword = txtSearch.getText().trim();
         if (keyword.isEmpty()) {
-            // Nếu ô tìm kiếm rỗng, hiển thị tất cả
             sorter.setRowFilter(null);
         } else {
-            sorter.setRowFilter(RowFilter.regexFilter("(?i)" + keyword));
+            // Escape regex để không lỗi khi nhập ký tự đặc biệt
+            sorter.setRowFilter(RowFilter.regexFilter("(?i)" + Pattern.quote(keyword)));
+        }
+    }
+
+    /** Sắp xếp đúng kiểu dữ liệu cho từng cột */
+    private void configureSorters() {
+        // Cột 0: Mã KM (KM-###) -> so sánh theo số
+        sorter.setComparator(0, Comparator.comparingInt(TimKiemKhuyenMaiPanel::extractKmNumber));
+
+        // Cột 2: Giảm Giá "15%" -> so sánh theo double
+        sorter.setComparator(2, Comparator.comparingDouble(TimKiemKhuyenMaiPanel::parsePercent));
+
+        // Cột 3,4: Ngày -> so sánh theo thời gian
+        Comparator<String> dateCmp = Comparator.comparing(TimKiemKhuyenMaiPanel::parseDateSafe);
+        sorter.setComparator(3, dateCmp);
+        sorter.setComparator(4, dateCmp);
+    }
+
+    // ================== Format & Parse helpers ==================
+    private static String nullToBlank(Object v) { return v == null ? "" : String.valueOf(v); }
+
+    private static String formatDateTime(LocalDateTime value) {
+        return value == null ? "" : value.format(DATE_TIME_FMT);
+    }
+
+    private static String formatPercent(BigDecimal giamGia) {
+        if (giamGia == null) return "";
+        BigDecimal val = giamGia;
+        // nếu lưu 0..1 thì nhân 100
+        if (val.compareTo(BigDecimal.ZERO) >= 0 && val.compareTo(BigDecimal.ONE) < 0) {
+            val = val.multiply(BigDecimal.valueOf(100));
+        }
+        val = val.stripTrailingZeros();
+        if (val.scale() < 0) val = val.setScale(0);
+        return val.toPlainString() + "%";
+    }
+
+    private static int extractKmNumber(String ma) {
+        if (ma == null) return -1;
+        // Hỗ trợ cả "KM-001" lẫn "KM001"
+        String digits = ma.replaceFirst("^KM-?", "");
+        try { return Integer.parseInt(digits); }
+        catch (Exception e) { return -1; }
+    }
+
+    private static double parsePercent(String s) {
+        if (s == null || s.isBlank()) return -1;
+        try { return Double.parseDouble(s.replace("%", "").trim()); }
+        catch (Exception e) { return -1; }
+    }
+
+    private static long parseDateSafe(String s) {
+        try {
+            if (s == null || s.isBlank()) return Long.MIN_VALUE;
+            return LocalDateTime.parse(s, DATE_TIME_FMT).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+        } catch (Exception e) {
+            return Long.MIN_VALUE;
         }
     }
 }

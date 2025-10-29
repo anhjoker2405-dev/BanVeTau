@@ -20,12 +20,14 @@ import java.util.Optional;
 public class HoaDonPdfDao {
 
     private static final String SQL_HEADER =
-            "SELECT hd.maHoaDon, hd.ngayLapHoaDon, hd.VAT, " +
+            "SELECT hd.maHoaDon, hd.ngayLapHoaDon, hd.VAT, hd.maKhuyenMai, " +
+            "       km.giamGia AS kmGiamGia, " +
             "       nv.tenNV, nv.soDienThoai AS soDienThoaiNV, " +
             "       hk.tenHK, hk.soDienThoai AS soDienThoaiHK " +
             "FROM HoaDon hd " +
             "JOIN NhanVien nv ON nv.maNV = hd.maNV " +
             "JOIN HanhKhach hk ON hk.maHK = hd.maHK " +
+            "LEFT JOIN KhuyenMai km ON km.maKhuyenMai = hd.maKhuyenMai " +
             "WHERE hd.maHoaDon = ?";
 
     private static final String SQL_ITEMS =
@@ -77,6 +79,17 @@ public class HoaDonPdfDao {
                             info.setVatRate(BigDecimal.ZERO);
                             info.setVatRatePercent(BigDecimal.ZERO);
                         }
+                        
+                        info.setMaKhuyenMai(rs.getString("maKhuyenMai"));
+                        BigDecimal promoRateRaw = rs.getBigDecimal("kmGiamGia");
+                        if (promoRateRaw != null) {
+                            BigDecimal promoRate = normalizeRate(promoRateRaw);
+                            info.setPromotionRate(promoRate);
+                            info.setPromotionRatePercent(promoRate.multiply(BigDecimal.valueOf(100)));
+                        } else {
+                            info.setPromotionRate(BigDecimal.ZERO);
+                            info.setPromotionRatePercent(BigDecimal.ZERO);
+                        }
 
                         info.setNhanVienLap(rs.getString("tenNV"));
                         info.setDienThoaiNhanVien(rs.getString("soDienThoaiNV"));
@@ -96,7 +109,7 @@ public class HoaDonPdfDao {
                 ps.setString(1, maHoaDon);
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
-                        info.addItem(mapItem(rs, info.getVatRate()));
+                        info.addItem(mapItem(rs, info.getVatRate(), info.getPromotionRate()));
                     }
                 }
             }
@@ -105,7 +118,7 @@ public class HoaDonPdfDao {
         }
     }
 
-    private InvoicePdfItem mapItem(ResultSet rs, BigDecimal vatRate) throws SQLException {
+    private InvoicePdfItem mapItem(ResultSet rs, BigDecimal vatRate, BigDecimal promotionRate) throws SQLException {
         String maVe = rs.getString("maVe");
         int soLuong = rs.getInt("soLuongVe");
         if (soLuong <= 0) {
@@ -116,20 +129,22 @@ public class HoaDonPdfDao {
         BigDecimal giaCoSo = giaCoSoRaw != null ? sanitizeMoney(giaCoSoRaw) : null;
 
         BigDecimal qty = BigDecimal.valueOf(soLuong);
-        BigDecimal thanhTienCoThue = donGia.multiply(qty);
+        BigDecimal thanhTienCoThue = donGia.multiply(qty).setScale(0, RoundingMode.HALF_UP);
 
-        BigDecimal donGiaChuaThue = resolveDonGiaChuaThue(donGia, giaCoSo, vatRate);
-        BigDecimal thanhTienChuaThue = donGiaChuaThue.multiply(qty);
+        BigDecimal donGiaChuaThue = resolveDonGiaChuaThue(donGia, giaCoSo, vatRate, promotionRate);
+        BigDecimal thanhTienChuaThue = donGiaChuaThue.multiply(qty).setScale(0, RoundingMode.HALF_UP);
+        BigDecimal thue = thanhTienCoThue.subtract(thanhTienChuaThue);
         if (thanhTienChuaThue.compareTo(thanhTienCoThue) > 0 && thanhTienCoThue.signum() >= 0) {
             thanhTienChuaThue = thanhTienCoThue;
             donGiaChuaThue = thanhTienChuaThue.divide(qty, 0, RoundingMode.HALF_UP);
+            thue = BigDecimal.ZERO;
         }
         if (thanhTienChuaThue.compareTo(BigDecimal.ZERO) < 0) {
             thanhTienChuaThue = BigDecimal.ZERO;
             donGiaChuaThue = BigDecimal.ZERO;
+            thue = thanhTienCoThue.max(BigDecimal.ZERO);
         }
 
-        BigDecimal thue = thanhTienCoThue.subtract(thanhTienChuaThue);
         if (thue.compareTo(BigDecimal.ZERO) < 0) {
             thue = BigDecimal.ZERO;
         }
@@ -140,17 +155,71 @@ public class HoaDonPdfDao {
                 donGiaChuaThue, thanhTienChuaThue, thue, thanhTienCoThue);
     }
     
-    private BigDecimal resolveDonGiaChuaThue(BigDecimal donGiaCoThue, BigDecimal giaCoSo, BigDecimal vatRate) {
-        if (giaCoSo != null && giaCoSo.compareTo(BigDecimal.ZERO) > 0) {
-            return giaCoSo;
-        }
-        if (vatRate != null && vatRate.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal divisor = BigDecimal.ONE.add(vatRate);
-            if (divisor.compareTo(BigDecimal.ZERO) != 0) {
-                return donGiaCoThue.divide(divisor, 0, RoundingMode.HALF_UP);
+
+    private BigDecimal resolveDonGiaChuaThue(BigDecimal donGiaCoThue,
+                                             BigDecimal giaCoSo,
+                                             BigDecimal vatRate,
+                                             BigDecimal promotionRate) {
+        BigDecimal base = removePromotion(donGiaCoThue, promotionRate);
+        base = removeVat(base, vatRate);
+        if (base == null || base.compareTo(BigDecimal.ZERO) <= 0) {
+            if (giaCoSo != null && giaCoSo.compareTo(BigDecimal.ZERO) > 0) {
+                base = giaCoSo;
+            } else {
+                base = donGiaCoThue;
             }
         }
-        return donGiaCoThue;
+        if (base.compareTo(BigDecimal.ZERO) < 0) {
+            base = BigDecimal.ZERO;
+        }
+        return base.setScale(0, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal normalizeRate(BigDecimal rawRate) {
+        BigDecimal rate = rawRate;
+        if (rate == null) {
+            return BigDecimal.ZERO;
+        }
+        if (rate.compareTo(BigDecimal.ONE) > 0) {
+            rate = rate.divide(BigDecimal.valueOf(100), 6, RoundingMode.HALF_UP);
+        }
+        if (rate.compareTo(BigDecimal.ZERO) < 0) {
+            rate = BigDecimal.ZERO;
+        }
+        if (rate.compareTo(BigDecimal.ONE) > 0) {
+            rate = BigDecimal.ONE;
+        }
+        return rate;
+    }
+
+    private BigDecimal removePromotion(BigDecimal amount, BigDecimal promotionRate) {
+        if (amount == null) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal rate = promotionRate != null ? promotionRate : BigDecimal.ZERO;
+        if (rate.compareTo(BigDecimal.ZERO) <= 0 || rate.compareTo(BigDecimal.ONE) >= 0) {
+            return amount;
+        }
+        BigDecimal divisor = BigDecimal.ONE.subtract(rate);
+        if (divisor.compareTo(BigDecimal.ZERO) == 0) {
+            return amount;
+        }
+        return amount.divide(divisor, 6, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal removeVat(BigDecimal amount, BigDecimal vatRate) {
+        if (amount == null) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal rate = vatRate != null ? vatRate : BigDecimal.ZERO;
+        if (rate.compareTo(BigDecimal.ZERO) <= 0) {
+            return amount;
+        }
+        BigDecimal divisor = BigDecimal.ONE.add(rate);
+        if (divisor.compareTo(BigDecimal.ZERO) == 0) {
+            return amount;
+        }
+        return amount.divide(divisor, 6, RoundingMode.HALF_UP);
     }
 
     private BigDecimal sanitizeMoney(BigDecimal value) {

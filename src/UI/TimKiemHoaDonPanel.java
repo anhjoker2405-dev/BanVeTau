@@ -106,8 +106,10 @@ public class TimKiemHoaDonPanel extends JPanel {
         addFilter(panel, gbc, 0, col++, new JLabel("Mã hóa đơn:"), txtMaHD);
         addDateTimeFilter(panel, gbc, 1, 0, chkTu,  dcTu,  spTu);
         addDateTimeFilter(panel, gbc, 1, 1, chkDen, dcDen, spDen);
-        addFilter(panel, gbc, 2, 0, new JLabel("Mã NV:"), txtMaNV);
-        addFilter(panel, gbc, 2, 1, new JLabel("Mã HK:"), txtMaHK);
+//        addFilter(panel, gbc, 2, 0, new JLabel("Mã NV:"), txtMaNV);
+//        addFilter(panel, gbc, 2, 1, new JLabel("Mã HK:"), txtMaHK);
+        addFilter(panel, gbc, 2, 0, new JLabel("Tên NV:"), txtMaNV);
+        addFilter(panel, gbc, 2, 1, new JLabel("Tên HK:"), txtMaHK);
 
         JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
         actionPanel.setOpaque(false);

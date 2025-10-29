@@ -1,6 +1,8 @@
 package ui;
 
 import com.toedter.calendar.JDateChooser;
+import dao.KhuyenMai_Dao;
+import entity.KhuyenMai;
 
 import javax.swing.*;
 import javax.swing.border.Border;
@@ -9,32 +11,39 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 
 /**
- * Giao diện Quản Lý Khuyến Mãi theo phong cách ManQuanLiChuyenTau
- * - Card bo góc, tiêu đề, nút Primary xanh, bảng zebra, tắt viền focus
- * - Dùng DateTimePicker (JDateChooser + JSpinner HH:mm)
- *
- * Lưu ý: File này chỉ xử lý UI. Phần DAO/Service bạn gắn lại ở các TODO.
+ * Quản Lý Khuyến Mãi: nối DAO (add/update/delete, load bảng), auto sinh mã nếu txtMa trống.
+ * Giữ nguyên style, bổ sung validate + định dạng hiển thị.
  */
 public class QuanLyKhuyenMaiPanel extends JPanel {
     private static final DateTimeFormatter DATE_TIME_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
+    /** Đặt TRUE nếu DB của bạn lưu giảm giá dạng 0..1; FALSE nếu lưu 0..100 */
+    private static final boolean STORE_GIAM_GIA_AS_FRACTION = false;
+
+    // ===== DAO =====
+    private final KhuyenMai_Dao kmDao = new KhuyenMai_Dao();
+
     // ===== Inputs =====
-    private final JTextField txtMa  = new JTextField();
+    private final JTextField txtMa  = new JTextField();      // để trống sẽ auto "KM-###"
     private final JTextField txtTen = new JTextField();
-    private final JSpinner   spGiam = new JSpinner(new SpinnerNumberModel(0, 0, 100, 1)); // % 0..100
+    private final JSpinner   spGiam = new JSpinner(new SpinnerNumberModel(0, 0, 100, 1)); // % 0..100 hiển thị
     private final JTextArea  txtMoTa = new JTextArea(3, 20);
 
     // Ngày bắt đầu / kết thúc
     private final DateTimePicker dtBatDau = new DateTimePicker();
     private final DateTimePicker dtKetThuc = new DateTimePicker();
 
-    // ===== Buttons (primary blue) =====
+    // ===== Buttons =====
     private final PrimaryButton btnThem    = new PrimaryButton("Thêm Khuyến Mãi");
     private final PrimaryButton btnXoa     = new PrimaryButton("Xóa Khuyến Mãi");
     private final PrimaryButton btnCapNhat = new PrimaryButton("Cập Nhật Khuyến Mãi");
@@ -66,6 +75,8 @@ public class QuanLyKhuyenMaiPanel extends JPanel {
 
         add(buildFilterCard(), BorderLayout.NORTH);
         add(buildTableCard(), BorderLayout.CENTER);
+
+        loadTable(); // nạp danh sách ban đầu
     }
 
     private JPanel buildFilterCard() {
@@ -97,10 +108,12 @@ public class QuanLyKhuyenMaiPanel extends JPanel {
         ab.insets = new Insets(0, 8, 0, 8);
         actions.add(btnThem, ab); actions.add(btnXoa, ab);
 
-        gbc.gridx = 0; gbc.gridy = 4; gbc.gridwidth = 3; gbc.weightx = 1; gbc.fill = GridBagConstraints.NONE; gbc.anchor = GridBagConstraints.WEST;
-        card.add(actions, gbc);
-        gbc.gridx = 3; gbc.gridy = 4; gbc.gridwidth = 1; gbc.weightx = 0; gbc.anchor = GridBagConstraints.EAST;
-        card.add(btnCapNhat, gbc);
+        GridBagConstraints gbc2 = new GridBagConstraints();
+        gbc2.gridx = 0; gbc2.gridy = 4; gbc2.gridwidth = 3; gbc2.weightx = 1; gbc2.fill = GridBagConstraints.NONE; gbc2.anchor = GridBagConstraints.WEST;
+        card.add(actions, gbc2);
+        gbc2 = new GridBagConstraints();
+        gbc2.gridx = 3; gbc2.gridy = 4; gbc2.gridwidth = 1; gbc2.weightx = 0; gbc2.anchor = GridBagConstraints.EAST;
+        card.add(btnCapNhat, gbc2);
 
         // to hơn cho nhãn
         Font labelFont = new Font("Segoe UI", Font.PLAIN, 13);
@@ -140,6 +153,14 @@ public class QuanLyKhuyenMaiPanel extends JPanel {
             @Override public void componentResized(java.awt.event.ComponentEvent e) { table.doLayout(); }
         });
 
+        // Chọn dòng → đổ form
+        table.addMouseListener(new MouseAdapter() {
+            @Override public void mouseClicked(MouseEvent e) {
+                int r = table.getSelectedRow();
+                if (r >= 0) fillFormFromRow(r);
+            }
+        });
+
         return card;
     }
 
@@ -166,6 +187,7 @@ public class QuanLyKhuyenMaiPanel extends JPanel {
             c.setFont(inputFont);
         }
         txtMa.setPreferredSize(new Dimension(520, h));
+        // txtMa.setEditable(false); // bật nếu muốn cấm sửa tay mã (vì auto)
 
         // Spinner %
         styleInputComponent(spGiam);
@@ -197,20 +219,181 @@ public class QuanLyKhuyenMaiPanel extends JPanel {
         sp.getViewport().setOpaque(false);
     }
 
-    // ===== Actions (TODO: gắn DAO/Service thực tế) =====
+    // ===== Actions: ĐÃ GẮN DAO =====
     private void initActions() {
         btnThem.addActionListener(e -> {
-            // TODO: Tạo khuyến mãi mới từ form và lưu DB
-            JOptionPane.showMessageDialog(this, "[UI Demo] Thêm khuyến mãi", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+            try {
+                KhuyenMai km = buildEntityFromForm(/*forUpdate*/ false);
+                if (km == null) return; // đã thông báo lỗi
+                boolean ok = kmDao.addKhuyenMai(km); // auto sinh mã nếu txtMa trống
+                if (ok) {
+                    txtMa.setText(km.getMaKhuyenMai()); // DAO đã set lại mã
+                    JOptionPane.showMessageDialog(this, "Thêm thành công: " + km.getMaKhuyenMai(), "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                    loadTableAndSelect(km.getMaKhuyenMai());
+                } else {
+                    JOptionPane.showMessageDialog(this, "Thêm KHÔNG thành công.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Lỗi thêm KM: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+            }
         });
+
         btnXoa.addActionListener(e -> {
-            // TODO: Xóa theo mã txtMa
-            JOptionPane.showMessageDialog(this, "[UI Demo] Xóa khuyến mãi", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+            String ma = txtMa.getText().trim();
+            if (ma.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Nhập/Chọn 'Mã khuyến mãi' để xoá.", "Thiếu thông tin", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            int cf = JOptionPane.showConfirmDialog(this, "Xoá KM: " + ma + " ?", "Xác nhận", JOptionPane.YES_NO_OPTION);
+            if (cf != JOptionPane.YES_OPTION) return;
+
+            try {
+                boolean ok = kmDao.deleteKhuyenMai(ma);
+                if (ok) {
+                    JOptionPane.showMessageDialog(this, "Đã xoá: " + ma, "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                    clearForm();
+                    loadTable();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Không tìm thấy/không xoá được: " + ma, "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Lỗi xoá KM: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+            }
         });
+
         btnCapNhat.addActionListener(e -> {
-            // TODO: Cập nhật theo mã txtMa
-            JOptionPane.showMessageDialog(this, "[UI Demo] Cập nhật khuyến mãi", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+            try {
+                KhuyenMai km = buildEntityFromForm(/*forUpdate*/ true);
+                if (km == null) return;
+                boolean ok = kmDao.updateKhuyenMai(km);
+                if (ok) {
+                    JOptionPane.showMessageDialog(this, "Cập nhật thành công.", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                    loadTableAndSelect(km.getMaKhuyenMai());
+                } else {
+                    JOptionPane.showMessageDialog(this, "Cập nhật KHÔNG thành công.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Lỗi cập nhật KM: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+            }
         });
+    }
+
+    // ====== Load/Fill ======
+    private void loadTable() {
+        model.setRowCount(0);
+        List<KhuyenMai> ds = kmDao.getAllKhuyenMai();
+        for (KhuyenMai km : ds) {
+            model.addRow(new Object[]{
+                    safe(km.getMaKhuyenMai()),
+                    safe(km.getTenKhuyenMai()),
+                    formatPercent(km.getGiamGia()),
+                    formatDateTime(km.getNgayBatDau()),
+                    formatDateTime(km.getNgayKetThuc()),
+                    safe(km.getMoTa())
+            });
+        }
+    }
+
+    private void loadTableAndSelect(String ma) {
+        loadTable();
+        if (ma == null) return;
+        // chọn dòng có mã vừa thao tác
+        for (int i = 0; i < model.getRowCount(); i++) {
+            if (ma.equals(model.getValueAt(i, 0))) {
+                int viewRow = (table.getRowSorter() != null)
+                        ? table.convertRowIndexToView(i)
+                        : i;
+                table.setRowSelectionInterval(viewRow, viewRow);
+                table.scrollRectToVisible(table.getCellRect(viewRow, 0, true));
+                fillFormFromRow(viewRow);
+                break;
+            }
+        }
+    }
+
+    /** Chọn 1 dòng trên bảng → đổ dữ liệu ra form */
+    private void fillFormFromRow(int viewRow) {
+        if (viewRow < 0) return;
+
+        // Nếu bảng có sorter/filter, chuyển view index -> model index
+        int r = (table.getRowSorter() != null)
+                ? table.convertRowIndexToModel(viewRow)
+                : viewRow;
+
+        String ma   = getCell(r, 0);
+        String ten  = getCell(r, 1);
+        String giam = getCell(r, 2); // "15%"
+        String bd   = getCell(r, 3); // "dd/MM/yyyy HH:mm"
+        String kt   = getCell(r, 4);
+        String moTa = getCell(r, 5);
+
+        txtMa.setText(ma);
+        txtTen.setText(ten);
+
+        try {
+            double p = Double.parseDouble(giam.replace("%", "").trim());
+            spGiam.setValue((int) Math.round(p));
+        } catch (Exception ignore) {
+            spGiam.setValue(0);
+        }
+
+        dtBatDau.setLocalDateTime(parseDate(bd));
+        dtKetThuc.setLocalDateTime(parseDate(kt));
+        txtMoTa.setText(moTa);
+    }
+
+    /** Lấy text ô (model) an toàn */
+    private String getCell(int modelRow, int col) {
+        Object v = model.getValueAt(modelRow, col);
+        return v == null ? "" : v.toString();
+    }
+
+    // ===== Build entity & validate =====
+    private KhuyenMai buildEntityFromForm(boolean forUpdate) {
+        String ma  = txtMa.getText().trim();
+        String ten = txtTen.getText().trim();
+        int giamInt = (Integer) spGiam.getValue();
+        LocalDateTime nbd = dtBatDau.getLocalDateTime();
+        LocalDateTime nkt = dtKetThuc.getLocalDateTime();
+        String moTa = txtMoTa.getText().trim();
+
+        if (forUpdate && ma.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Thiếu 'Mã khuyến mãi' để cập nhật.", "Thiếu thông tin", JOptionPane.WARNING_MESSAGE);
+            return null;
+        }
+        if (ten.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Tên khuyến mãi không được rỗng.", "Thiếu thông tin", JOptionPane.WARNING_MESSAGE);
+            return null;
+        }
+        if (giamInt < 0 || giamInt > 100) {
+            JOptionPane.showMessageDialog(this, "Giảm giá phải trong khoảng 0..100%.", "Sai dữ liệu", JOptionPane.WARNING_MESSAGE);
+            return null;
+        }
+        if (nbd == null || nkt == null) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn đầy đủ ngày bắt đầu/kết thúc.", "Thiếu thông tin", JOptionPane.WARNING_MESSAGE);
+            return null;
+        }
+        if (nkt.isBefore(nbd)) {
+            JOptionPane.showMessageDialog(this, "Ngày kết thúc phải >= ngày bắt đầu.", "Sai dữ liệu", JOptionPane.WARNING_MESSAGE);
+            return null;
+        }
+
+        BigDecimal giamGia = BigDecimal.valueOf(giamInt);
+        if (STORE_GIAM_GIA_AS_FRACTION) {
+            giamGia = giamGia.divide(BigDecimal.valueOf(100)); // lưu dạng 0..1
+        }
+
+        KhuyenMai km = new KhuyenMai();
+        km.setMaKhuyenMai(ma.isEmpty() ? null : ma);  // để null -> DAO tự sinh KM-###
+        km.setTenKhuyenMai(ten);
+        km.setGiamGia(giamGia);
+        km.setNgayBatDau(nbd);
+        km.setNgayKetThuc(nkt);
+        km.setMoTa(moTa);
+        return km;
     }
 
     private void clearForm() {
@@ -222,11 +405,30 @@ public class QuanLyKhuyenMaiPanel extends JPanel {
         dtKetThuc.setLocalDateTime(null);
     }
 
-    private String formatDateTime(LocalDateTime value) {
+    // ===== Format/Parse helpers =====
+    private static String safe(Object v){ return v==null? "": String.valueOf(v); }
+
+    private static String formatDateTime(LocalDateTime value) {
         return value == null ? "" : value.format(DATE_TIME_FMT);
     }
+    private static LocalDateTime parseDate(String s) {
+        try { return (s==null || s.isBlank()) ? null : LocalDateTime.parse(s, DATE_TIME_FMT); }
+        catch (Exception e){ return null; }
+    }
 
-    // ====== Vẽ nền gradient như panel mẫu ======
+    private static String formatPercent(BigDecimal giamGia) {
+        if (giamGia == null) return "";
+        BigDecimal val = giamGia;
+        // nếu DB lưu 0..1 thì hiển thị *100
+        if (val.compareTo(BigDecimal.ZERO) >= 0 && val.compareTo(BigDecimal.ONE) < 0) {
+            val = val.multiply(BigDecimal.valueOf(100));
+        }
+        val = val.stripTrailingZeros();
+        if (val.scale() < 0) val = val.setScale(0);
+        return val.toPlainString() + "%";
+    }
+
+    // ====== Vẽ nền gradient ======
     @Override protected void paintComponent(Graphics g) {
         Graphics2D g2 = (Graphics2D) g.create();
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -236,7 +438,7 @@ public class QuanLyKhuyenMaiPanel extends JPanel {
         super.paintComponent(g);
     }
 
-    // ======= Các class style dùng chung (copy phong cách từ ManQuanLiChuyenTau) =======
+    // ======= Các class style dùng chung =======
 
     // Card bo góc
     private static class CardPanel extends JPanel {
