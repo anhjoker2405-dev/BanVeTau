@@ -10,7 +10,7 @@ import java.util.List;
 /**
  * DAO "TaiKhoan" đầy đủ CRUD cho màn Quản lý tài khoản.
  * Bảng: TaiKhoan(maTK, tenDangNhap, matKhau, maNV, maLoaiTK, trangThai)
- * Gợi ý thêm: LoaiTaiKhoan(maLoaiTK, tenLoaiTK)
+ * LoaiTaiKhoan(maLoaiTK, tenLoaiTK, moTa, quyenHan)
  *
  * Lưu ý: Demo để plain password cho tương thích đăng nhập hiện có.
  * Khi triển khai thật nên hash password + salt (SHA-256/Bcrypt) và sửa authenticate().
@@ -68,26 +68,72 @@ public class TaiKhoan_Dao {
         }
     }
 
+    // ===== Helper: sinh maTK TK-001, TK-002... (gọi trong transaction) =====
+    private String generateNextId(Connection con) throws SQLException {
+        final String sql = """
+            SELECT 'TK-' + RIGHT('000' + CAST(
+                     ISNULL(MAX(TRY_CAST(REPLACE(maTK,'TK-','') AS INT)), 0) + 1
+                   AS VARCHAR(3)), 3)
+            FROM TaiKhoan WITH (UPDLOCK, HOLDLOCK)
+        """;
+        try (PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) return rs.getString(1);
+            return "TK-001";
+        }
+    }
+
+    // ===== Helper: chuẩn hoá maLoaiTK (nhập mã hoặc tên đều OK) =====
+    private String normalizeMaLoaiTK(Connection con, String input) throws SQLException {
+        if (input == null || input.isBlank()) {
+            throw new SQLException("Loại tài khoản không được trống.");
+        }
+        final String sql = """
+            SELECT TOP 1 maLoaiTK
+            FROM LoaiTaiKhoan
+            WHERE maLoaiTK = ? OR LTRIM(RTRIM(LOWER(tenLoaiTK))) = LOWER(?)
+        """;
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            String s = input.trim();
+            ps.setString(1, s);
+            ps.setString(2, s);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getString(1);
+            }
+        }
+        throw new SQLException("Loại tài khoản không hợp lệ: " + input);
+    }
+
     // ====== CREATE ======
     public TaiKhoan create(String tenDangNhap, String matKhau, String maNV, String maLoaiTK, boolean kichHoat) throws SQLException {
         if (existsUsername(tenDangNhap)) throw new SQLException("Tên đăng nhập đã tồn tại.");
-        final String sql = """
-            INSERT INTO TaiKhoan (tenDangNhap, matKhau, maNV, maLoaiTK, trangThai)
-            VALUES (?, ?, ?, ?, ?);
-            SELECT SCOPE_IDENTITY() AS newId;
-        """;
-        String status = kichHoat ? "Kich_Hoat" : "Vo_Hieu";
-        try (Connection con = ConnectDB.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, tenDangNhap);
-            ps.setString(2, matKhau);
-            ps.setString(3, maNV);
-            ps.setString(4, maLoaiTK);
-            ps.setString(5, status);
-            try (ResultSet rs = ps.executeQuery()) {
-                String newId = null;
-                if (rs.next()) newId = String.valueOf(rs.getObject("newId"));
-                return new TaiKhoan(newId, tenDangNhap, matKhau, maNV, status, maLoaiTK);
+
+        final String insert = "INSERT INTO TaiKhoan (maTK, tenDangNhap, matKhau, maNV, maLoaiTK, trangThai) VALUES (?, ?, ?, ?, ?, ?)";
+        final String status = kichHoat ? "Kich_Hoat" : "Vo_Hieu";
+
+        try (Connection con = ConnectDB.getConnection()) {
+            con.setAutoCommit(false);
+            try {
+                String maTKNew = generateNextId(con);
+                String maLoaiMapped = normalizeMaLoaiTK(con, maLoaiTK);
+
+                try (PreparedStatement ps = con.prepareStatement(insert)) {
+                    ps.setString(1, maTKNew);
+                    ps.setString(2, tenDangNhap);
+                    ps.setString(3, matKhau);
+                    ps.setString(4, maNV);
+                    ps.setString(5, maLoaiMapped);
+                    ps.setString(6, status);
+                    ps.executeUpdate();
+                }
+
+                con.commit();
+                return new TaiKhoan(maTKNew, tenDangNhap, matKhau, maNV, status, maLoaiMapped);
+            } catch (SQLException ex) {
+                con.rollback();
+                throw ex;
+            } finally {
+                con.setAutoCommit(true);
             }
         }
     }
@@ -115,11 +161,13 @@ public class TaiKhoan_Dao {
 
     public int updateRole(String maTK, String maLoaiTK) throws SQLException {
         final String sql = "UPDATE TaiKhoan SET maLoaiTK = ? WHERE maTK = ?";
-        try (Connection con = ConnectDB.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, maLoaiTK);
-            ps.setString(2, maTK);
-            return ps.executeUpdate();
+        try (Connection con = ConnectDB.getConnection()) {
+            String mapped = normalizeMaLoaiTK(con, maLoaiTK);
+            try (PreparedStatement ps = con.prepareStatement(sql)) {
+                ps.setString(1, mapped);
+                ps.setString(2, maTK);
+                return ps.executeUpdate();
+            }
         }
     }
 

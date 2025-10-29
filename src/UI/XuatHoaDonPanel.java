@@ -1,12 +1,13 @@
 package ui;
 
+import dao.HoaDonPdfDao;
 import dao.HoaDon_Dao;
 import entity.HoaDonView;
+import entity.InvoicePdfInfo;
 import com.toedter.calendar.JDateChooser;
 
 import javax.swing.*;
-import util.InvoicePreviewDialog;
-import util.InvoicePdfExporter;
+import util.HDPdfExporter;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
@@ -14,12 +15,19 @@ import javax.swing.table.JTableHeader;
 import javax.swing.text.DateFormatter;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.awt.Desktop;
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Timestamp;
 import java.text.NumberFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 public class XuatHoaDonPanel extends JPanel {
     // ======= Giữ nguyên style như TimKiemChuyenDiPanel =======
@@ -54,6 +62,7 @@ public class XuatHoaDonPanel extends JPanel {
         @Override public boolean isCellEditable(int r, int c){ return false; }
     };
     private final JTable table = new JTable(model);
+    private final List<HoaDonView> currentData = new ArrayList<>();
 
     public XuatHoaDonPanel() {
         setOpaque(false);
@@ -187,6 +196,8 @@ public class XuatHoaDonPanel extends JPanel {
 
             NumberFormat vnd = NumberFormat.getCurrencyInstance(new Locale("vi","VN"));
             model.setRowCount(0);
+            currentData.clear();
+            currentData.addAll(data);
             for (HoaDonView hd : data) {
                 model.addRow(new Object[]{
                         nullToDash(hd.getMaHoaDon()),
@@ -381,26 +392,54 @@ public class XuatHoaDonPanel extends JPanel {
             return;
         }
         int row = table.convertRowIndexToModel(viewRow);
-        String maHD = String.valueOf(model.getValueAt(row, 0));
-        String ngay = String.valueOf(model.getValueAt(row, 1));
-        String tenKH = String.valueOf(model.getValueAt(row, 2));
-        String sdt = String.valueOf(model.getValueAt(row, 3));
-        String tenNV = String.valueOf(model.getValueAt(row, 4));
-        String vatText = String.valueOf(model.getValueAt(row, 5)); // vd: "10%"
-        String tongText = String.valueOf(model.getValueAt(row, 6)); // vd: "1.234.567 ₫"
+        if (row < 0 || row >= currentData.size()) {
+            JOptionPane.showMessageDialog(this, "Không thể xác định dữ liệu hoá đơn đã chọn.");
+            return;
+        }
 
-        java.util.List<String> lines = new java.util.ArrayList<>();
-        lines.add("HÓA ĐƠN BÁN VÉ");
-        lines.add("----------------------------------------");
-        lines.add("Mã HĐ: " + maHD);
-        lines.add("Ngày: " + ngay);
-        lines.add("Khách: " + (tenKH == null ? "" : tenKH) + " - " + (sdt == null ? "" : sdt));
-        lines.add("Nhân viên: " + (tenNV == null ? "" : tenNV));
-        lines.add("----------------------------------------");
-        lines.add("VAT: " + (vatText == null ? "-" : vatText));
-        lines.add("TỔNG: " + (tongText == null ? "-" : tongText));
+        HoaDonView selected = currentData.get(row);
+        String maHD = selected != null ? selected.getMaHoaDon() : null;
+        if (maHD == null || maHD.isBlank() || "-".equals(maHD)) {
+            JOptionPane.showMessageDialog(this, "Không tìm thấy mã hoá đơn hợp lệ để xuất.");
+            return;
+        }
 
-        InvoicePreviewDialog.showPreview(this, "HÓA ĐƠN " + maHD, lines);
+        try {
+            HoaDonPdfDao pdfDao = new HoaDonPdfDao();
+            Optional<InvoicePdfInfo> infoOpt = pdfDao.findByMaHoaDon(maHD);
+            if (infoOpt.isEmpty()) {
+                JOptionPane.showMessageDialog(this,
+                        "Không tìm thấy dữ liệu chi tiết cho hoá đơn " + maHD,
+                        "Lỗi",
+                        JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            Path exportDir = Paths.get("/BanVeTauv2/HoaDon");
+            Files.createDirectories(exportDir);
+            Path output = exportDir.resolve(maHD + ".pdf");
+
+            HDPdfExporter.export(infoOpt.get(), output.toString());
+
+            try {
+                if (Desktop.isDesktopSupported()) {
+                    Desktop.getDesktop().open(output.toFile());
+                }
+            } catch (Exception openEx) {
+                JOptionPane.showMessageDialog(this,
+                        "Đã lưu hoá đơn nhưng không thể mở tệp: " + openEx.getMessage(),
+                        "Cảnh báo",
+                        JOptionPane.WARNING_MESSAGE);
+            }
+
+            JOptionPane.showMessageDialog(this,
+                    "Đã xuất hoá đơn: " + output.toString());
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this,
+                    "Có lỗi khi xuất hoá đơn: " + ex.getMessage(),
+                    "Lỗi",
+                    JOptionPane.ERROR_MESSAGE);
+        }
     }
 
 }

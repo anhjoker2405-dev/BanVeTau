@@ -4,10 +4,14 @@ import dao.GiaVe_Dao;
 import dao.HanhKhach_Dao;
 import dao.LoaiVe_Dao;
 import dao.SeatMapDao;
+import entity.ComboItem;
 import entity.Ghe;
 import entity.KhoangTau;
 import entity.ToaTau;
 import entity.LoaiVe;
+import entity.PassengerInfo;
+import entity.SeatSelection;
+import entity.ToaTau;
 
 import java.sql.*;
 import javax.swing.*;
@@ -765,7 +769,7 @@ public class ManChonGheNgoi extends JPanel {
         }
     }
     
-        public BigDecimal getFarePerSeat() {
+    public BigDecimal getFarePerSeat() {
         return currentFare;
     }
 
@@ -854,42 +858,6 @@ public class ManChonGheNgoi extends JPanel {
         combo.setFocusable(false);
         return combo;
     }
-
-    private static class ComboItem {
-        private final String value;
-        private final String label;
-
-        ComboItem(String value, String label) {
-            this.value = value;
-            this.label = label;
-        }
-
-        public String getValue() {
-            return value;
-        }
-
-        public String getLabel() {
-            return label;
-        }
-
-        @Override
-        public String toString() {
-            return label;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (!(o instanceof ComboItem)) return false;
-            ComboItem that = (ComboItem) o;
-            return Objects.equals(value, that.value);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(value);
-        }
-    }
     
     private static class TicketForm {
         SeatSelection seat;
@@ -901,73 +869,6 @@ public class ManChonGheNgoi extends JPanel {
         JComboBox<String> yearCombo;
         JComboBox<ComboItem> ticketTypeCombo;
         JTextField priceField;
-    }
-    
-    public static class PassengerInfo {
-        private final SeatSelection seat;
-        private final String hoTen;
-        private final String soDienThoai;
-        private final String cccd;
-        private final String namSinh;
-        private final String maGioiTinh;
-        private final String tenGioiTinh;
-        private final String maLoaiVe;
-        private final String tenLoaiVe;
-        private final BigDecimal giaVe;
-
-        PassengerInfo(SeatSelection seat, String hoTen, String soDienThoai, String cccd, String namSinh,
-                      String maGioiTinh, String tenGioiTinh, String maLoaiVe, String tenLoaiVe, BigDecimal giaVe) {
-            this.seat = seat;
-            this.hoTen = hoTen;
-            this.soDienThoai = soDienThoai;
-            this.cccd = cccd;
-            this.namSinh = namSinh;
-            this.maGioiTinh = maGioiTinh;
-            this.tenGioiTinh = tenGioiTinh;
-            this.maLoaiVe = maLoaiVe;
-            this.tenLoaiVe = tenLoaiVe;
-            this.giaVe = giaVe;
-        }
-
-        public SeatSelection getSeat() {
-            return seat;
-        }
-
-        public String getHoTen() {
-            return hoTen;
-        }
-
-        public String getSoDienThoai() {
-            return soDienThoai;
-        }
-
-        public String getCccd() {
-            return cccd;
-        }
-
-        public String getNamSinh() {
-            return namSinh;
-        }
-
-        public String getMaGioiTinh() {
-            return maGioiTinh;
-        }
-
-        public String getTenGioiTinh() {
-            return tenGioiTinh;
-        }
-
-        public String getMaLoaiVe() {
-            return maLoaiVe;
-        }
-
-        public String getTenLoaiVe() {
-            return tenLoaiVe;
-        }
-
-        public BigDecimal getGiaVe() {
-            return giaVe;
-        }
     }
 
     private String formatCurrency(BigDecimal amount) {
@@ -1191,66 +1092,6 @@ public class ManChonGheNgoi extends JPanel {
         void seatDeselected(SeatSelection seat);
     }
 
-    public static class SeatSelection {
-        private final int soToa;
-        private final String maToa;
-        private final String tenKhoang;
-        private final String maKhoang;
-        private final Ghe ghe;
-
-        SeatSelection(ToaTau toa, KhoangTau khoang, Ghe ghe) {
-            this.soToa = toa.getSoToa();
-            this.maToa = toa.getMaToa();
-            this.tenKhoang = khoang.getTenKhoangTau();
-            this.maKhoang = khoang.getMaKhoangTau();
-            this.ghe = ghe;
-        }
-
-        public int getSoToa() {
-            return soToa;
-        }
-
-        public String getMaToa() {
-            return maToa;
-        }
-
-        public String getTenKhoang() {
-            return tenKhoang;
-        }
-
-        public String getMaKhoang() {
-            return maKhoang;
-        }
-
-        public Ghe getGhe() {
-            return ghe;
-        }
-
-        public int getSeatDisplayNumber() {
-            int order = ghe.getThuTuHienThi();
-            if (order > 0) {
-                return order;
-            }
-            return ghe.getSoGheAsInt();
-        }
-
-        public String getMaGhe() {
-            return ghe.getMaGhe();
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (!(o instanceof SeatSelection)) return false;
-            SeatSelection that = (SeatSelection) o;
-            return Objects.equals(ghe.getMaGhe(), that.ghe.getMaGhe());
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(ghe.getMaGhe());
-        }
-    }
 //    public static void main(String[] args) {
 //        try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception ignore) {}
 //        SwingUtilities.invokeLater(() -> {

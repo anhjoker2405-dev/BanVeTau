@@ -2,6 +2,8 @@ package ui;
 
 import dao.KhuyenMai_Dao;
 import entity.KhuyenMai;
+import entity.TicketSelection;
+import entity.TrainInfo;
 import util.AppEventBus;
 import javax.swing.*;
 import javax.swing.border.CompoundBorder;
@@ -60,8 +62,8 @@ public class ManThanhToan extends JPanel {
     private Runnable editAction;
     private Runnable confirmAction;
 
-    private List<BanVe.TicketSelection> selections = new ArrayList<>();
-    private BanVe.TrainInfo trainInfo;
+    private List<TicketSelection> selections = new ArrayList<>();
+    private TrainInfo trainInfo;
 
     private final NumberFormat currencyFormat;
 
@@ -406,7 +408,7 @@ public class ManThanhToan extends JPanel {
             ticketListPanel.add(createEmptyMessage("Chưa có ghế nào được chọn."));
         } else {
             int index = 1;
-            for (BanVe.TicketSelection selection : selections) {
+            for (TicketSelection selection : selections) {
                 ticketListPanel.add(createTicketCard(index++, selection));
                 ticketListPanel.add(Box.createVerticalStrut(10));
             }
@@ -415,7 +417,7 @@ public class ManThanhToan extends JPanel {
         ticketListPanel.repaint();
     }
 
-    private Component createTicketCard(int index, BanVe.TicketSelection selection) {
+    private Component createTicketCard(int index, TicketSelection selection) {
         JPanel card = new JPanel(new BorderLayout(0, 10));
         card.setBackground(Color.WHITE);
         card.setBorder(new CompoundBorder(
@@ -488,7 +490,7 @@ public class ManThanhToan extends JPanel {
             customerIdLabel.setText("-");
             return;
         }
-        BanVe.TicketSelection first = selections.get(0);
+        TicketSelection first = selections.get(0);
         customerNameLabel.setText(safe(first.getHoTen()));
         customerPhoneLabel.setText(safe(first.getSoDienThoai()));
         customerIdLabel.setText(safe(first.getCccd()));
@@ -527,7 +529,7 @@ public class ManThanhToan extends JPanel {
             return;
         }
         BigDecimal subtotal = BigDecimal.ZERO;
-        for (BanVe.TicketSelection selection : selections) {
+        for (TicketSelection selection : selections) {
             subtotal = subtotal.add(selection.getBasePrice());
         }
 
@@ -657,12 +659,12 @@ public class ManThanhToan extends JPanel {
         return exchangeBreakdown;
     }
 
-    public void setTrainInfo(BanVe.TrainInfo trainInfo) {
+    public void setTrainInfo(TrainInfo trainInfo) {
         this.trainInfo = trainInfo;
         updateTrainInfo();
     }
 
-    public void setSelections(List<BanVe.TicketSelection> selections) {
+    public void setSelections(List<TicketSelection> selections) {
         this.selections = selections != null ? new ArrayList<>(selections) : new ArrayList<>();
         loadPromotions();
         refreshUI();

@@ -10,23 +10,36 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.text.NumberFormat;
 import util.AppSession;
-import util.InvoicePdfExporter;
-import util.InvoicePreviewDialog;
 import dao.ChuyenDi_Dao;
 import dao.HanhKhach_Dao;
+import dao.HoaDonPdfDao;
 import dao.NhanVien_Dao;
 import dao.ThanhToan_Dao;
 import dao.SeatAvailabilityDao;
+import dao.TicketPdfDao;
 import entity.ChuyenTau;
+import entity.PassengerInfo;
+import entity.SeatSelection;
+import entity.TicketSelection;
+import entity.TrainInfo;
+import entity.InvoicePdfInfo;
+import entity.TicketPdfInfo;
 import java.math.BigDecimal;
 
+import java.awt.Desktop;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Date;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import util.TicketPdfExporter;
+import util.HDPdfExporter;
 
 public class BanVe extends JPanel {
 
@@ -40,10 +53,11 @@ public class BanVe extends JPanel {
     private final ChooseTripPage page1 = new ChooseTripPage();
     private final ManChonGheNgoi page2 = new ManChonGheNgoi();
     private final ManThanhToan page3 = new ManThanhToan();
+    private final ManHinhXuatPDF exportPanel = new ManHinhXuatPDF();
 
     private TrainInfo currentTrain;
     private final List<TicketSelection> selections = new ArrayList<>();
-    private ChonChuyenPanel.Trip selectedTrip;
+    private ManChonChuyen.Trip selectedTrip;
     private Runnable bookingCompletionListener;
 
     public BanVe() {
@@ -56,7 +70,10 @@ public class BanVe extends JPanel {
         cards.add(page1, "p1");
         cards.add(page2, "p2");
         cards.add(page3, "p3");
+        cards.add(exportPanel, "p4");
         add(cards, BorderLayout.CENTER);
+        
+        page3.setMode(ManThanhToan.Mode.BOOKING);
         
         page2.addBackActionListener(e -> showStep(1));
         page2.addNextActionListener(e -> handleSeatSelectionNext());
@@ -64,6 +81,16 @@ public class BanVe extends JPanel {
         page3.setBackAction(() -> showStep(2));
         page3.setEditTicketsAction(() -> showStep(2));
         page3.setConfirmAction(this::thucHienThanhToan);
+        
+        exportPanel.getBtnInVe().addActionListener(e -> handleExportTicket(exportPanel, pendingTicketIds));
+        exportPanel.getBtnInHoaDon().addActionListener(e ->
+                handleExportInvoice(exportPanel, pendingInvoiceId));
+        exportPanel.getBtnBackHome().addActionListener(e -> {
+            showStep(1);
+            pendingTicketIds = java.util.Collections.emptyList();
+            exportPanel.setInfoMessage(" ");
+            pendingInvoiceId = null;
+        });
 
         showStep(1);
     }
@@ -88,8 +115,8 @@ public class BanVe extends JPanel {
         private final CardLayout subCards = new CardLayout();
         private final JPanel subPanel = new JPanel(subCards);
 
-        private final TimChuyenTauPanel searchPanel = new TimChuyenTauPanel();
-        private final ChonChuyenPanel resultPanel = new ChonChuyenPanel();
+        private final ManTimChuyen searchPanel = new ManTimChuyen();
+        private final ManChonChuyen resultPanel = new ManChonChuyen();
         
         private String lastGaDi;
         private String lastGaDen;
@@ -133,28 +160,28 @@ public class BanVe extends JPanel {
             lastGaDen = gaDen;
             lastNgay = ngay;
 
-            List<ChonChuyenPanel.Trip> trips = queryTrips(gaDi, gaDen, ngay);
+            List<ManChonChuyen.Trip> trips = queryTrips(gaDi, gaDen, ngay);
             resultPanel.setContext(gaDi != null ? gaDi : "", gaDen != null ? gaDen : "", ngay);
             resultPanel.setTrips(trips);
             subCards.show(subPanel, "result");
             showingResults = true;
         }
 
-        private List<ChonChuyenPanel.Trip> queryTrips(String gaDi, String gaDen, LocalDate ngay) {
+        private List<ManChonChuyen.Trip> queryTrips(String gaDi, String gaDen, LocalDate ngay) {
             if (ngay == null) {
                 return java.util.Collections.emptyList();
             }
 
             java.time.LocalDateTime from = ngay.atStartOfDay();
             java.time.LocalDateTime to = ngay.atTime(23, 59, 59);
-            List<ChonChuyenPanel.Trip> trips = new ArrayList<>();
+            List<ManChonChuyen.Trip> trips = new ArrayList<>();
             try {
                 dao.ChuyenDi_Dao dao = new dao.ChuyenDi_Dao();
                 java.util.Date dFrom = java.util.Date.from(from.atZone(java.time.ZoneId.systemDefault()).toInstant());
                 java.util.Date dTo = java.util.Date.from(to.atZone(java.time.ZoneId.systemDefault()).toInstant());
                 List<ChuyenTau> rs = dao.search(null, gaDi, gaDen, dFrom, dTo);
                 for (ChuyenTau cd : rs) {
-                    trips.add(new ChonChuyenPanel.Trip(
+                    trips.add(new ManChonChuyen.Trip(
                             cd.getMaChuyenTau(),
                             cd.getMaTau(),
                             cd.getTenTau(),
@@ -190,7 +217,7 @@ public class BanVe extends JPanel {
 
 
     // ======================= PAGE 2 =======================
-    private void handleTripSelection(ChonChuyenPanel.Trip trip) {
+    private void handleTripSelection(ManChonChuyen.Trip trip) {
         if (trip == null) {
             return;
         }
@@ -232,7 +259,7 @@ public class BanVe extends JPanel {
     }
 
     private boolean syncSelectionsFromSeatPage() {
-        List<ManChonGheNgoi.SeatSelection> seats = page2.getSelectedSeats();
+        List<SeatSelection> seats = page2.getSelectedSeats();
         if (seats.isEmpty()) {
             JOptionPane.showMessageDialog(BanVe.this, "Chưa có ghế nào được chọn.");
             return false;
@@ -256,16 +283,16 @@ public class BanVe extends JPanel {
         selections.clear();
         
         BigDecimal defaultFare = page2.getFarePerSeat();
-        List<ManChonGheNgoi.PassengerInfo> infoList = page2.collectPassengerInfos();
-        Map<ManChonGheNgoi.SeatSelection, ManChonGheNgoi.PassengerInfo> infoBySeat = new LinkedHashMap<>();
-        for (ManChonGheNgoi.PassengerInfo info : infoList) {
+        List<PassengerInfo> infoList = page2.collectPassengerInfos();
+        Map<SeatSelection, PassengerInfo> infoBySeat = new LinkedHashMap<>();
+        for (PassengerInfo info : infoList) {
             if (info != null && info.getSeat() != null) {
                 infoBySeat.put(info.getSeat(), info);
             }
         }
 
-        for (ManChonGheNgoi.SeatSelection seat : seats) {
-            ManChonGheNgoi.PassengerInfo info = infoBySeat.get(seat);
+        for (SeatSelection seat : seats) {
+            PassengerInfo info = infoBySeat.get(seat);
             if (info != null) {
                 selections.add(new TicketSelection(currentTrain, info));
             } else {
@@ -337,7 +364,7 @@ public class BanVe extends JPanel {
 
         // 4) Mã chuyến tàu
         String maChuyenTau = selectedTrip != null ? selectedTrip.code
-                : (currentTrain != null ? currentTrain.code : null);
+                : (currentTrain != null ? currentTrain.getCode() : null);
         if (maChuyenTau == null) {
             JOptionPane.showMessageDialog(this, "Không xác định được mã chuyến tàu.");
             return;
@@ -354,198 +381,157 @@ public class BanVe extends JPanel {
                 unit = BigDecimal.ZERO;
             }
 
-            String maHD = service.luuHoaDonVaVe(maNV, maHK, maChuyenTau, maGheList, unit, vat, maKM);
+            ThanhToan_Dao.PaymentResult paymentResult = service.luuHoaDonVaVe(
+                    maNV, maHK, maChuyenTau, maGheList, unit, vat, maKM);
             new SeatAvailabilityDao().refreshForTrip(maChuyenTau);
 
-            JOptionPane.showMessageDialog(this,
-                "Thanh toán thành công!\nMã HĐ: " + maHD + "\nTổng tiền: " + formatVND(tong));
-         // Hỏi người dùng có muốn xuất hoá đơn PDF không
-		int choice = JOptionPane.showConfirmDialog(this,
-		        "Bạn có muốn xuất hoá đơn (PDF) không?",
-		        "Xuất hoá đơn",
-		        JOptionPane.YES_NO_OPTION,
-		        JOptionPane.QUESTION_MESSAGE);
-		if (choice == JOptionPane.YES_OPTION) {
-		    //  Xuất hoá đơn PDF sau khi thanh toán thành công 
-		    try {
-		        java.util.List<String> seatLines = new java.util.ArrayList<>();
-		        for (TicketSelection ts : selections) {
-		            seatLines.add(String.format("Toa %d Ghế %d (%s)", ts.getCar(), ts.getSeatNumber(), ts.getSeatId()));
-		        }
-		        int donGiaInt = unit != null ? unit.intValue() : 0;
-		        java.util.List<String> lines = InvoicePdfExporter.buildLines(
-		            maHD,
-		            tenHK, sdtHK,
-		            currentTrain != null ? currentTrain.getCode() : null,
-		            currentTrain != null ? currentTrain.getRoute() : null,
-		            currentTrain != null ? currentTrain.getDepart() : null,
-		            seatLines,
-		            selections.size(),
-		            new java.math.BigDecimal(donGiaInt), // ← ép sang BigDecimal
-		            vat                                  // ← giữ nguyên
-		        );
-		        InvoicePreviewDialog.showPreview(this, "HÓA ĐƠN BÁN VÉ", lines);
-
-		    } catch (Exception ex) {
-		        ex.printStackTrace();
-		        JOptionPane.showMessageDialog(this, "Xuất PDF thất bại: " + ex.getMessage());
-		    }
-		}
-		            selections.clear();
-		page3.setSelections(java.util.Collections.emptyList());
-		            showStep(1);
-		            if (bookingCompletionListener != null) {
-		                SwingUtilities.invokeLater(bookingCompletionListener);
-		            }
-		        } catch (Exception ex) {
-		            ex.printStackTrace();
-		            JOptionPane.showMessageDialog(this, "Có lỗi khi lưu dữ liệu: " + ex.getMessage(),
-		                    "Lỗi", JOptionPane.ERROR_MESSAGE);
-		        }
-		    }
-
-    // =======================END PAGE 3 =======================
+            selections.clear();
+            page3.setSelections(java.util.Collections.emptyList());
+            if (bookingCompletionListener != null) {
+                SwingUtilities.invokeLater(bookingCompletionListener);
+            }
+            
+            SwingUtilities.invokeLater(() -> showTicketExportScreen(paymentResult, tong));
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Có lỗi khi lưu dữ liệu: " + ex.getMessage(),
+                    "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
+    }
     
-    // ======= Common helpers =======
-    public static class TrainInfo {
-        private final String code;
-        private final String depart;
-        private final String arrive;
-        private final String route;
-        private final int carCount;
+    private java.util.List<String> pendingTicketIds = java.util.Collections.emptyList();
+    private String pendingInvoiceId;
 
-        TrainInfo(String code, String depart, String arrive, String route, int carCount) {
-            this.code = code;
-            this.depart = depart;
-            this.arrive = arrive;
-            this.route = route;
-            this.carCount = carCount;
+    private void showTicketExportScreen(ThanhToan_Dao.PaymentResult paymentResult, int tongTien) {
+        pendingInvoiceId = paymentResult != null ? paymentResult.getMaHoaDon() : null;
+        if (paymentResult == null || paymentResult.getMaVeList().isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                    "Thanh toán thành công!\nTổng tiền: " + formatVND(tongTien));
+            showStep(1);
+            return;
         }
 
-        public String getCode() {
-            return code;
+        List<String> maVeList = paymentResult.getMaVeList();
+        String maHD = paymentResult.getMaHoaDon();
+        pendingInvoiceId = maHD;
+        String summary = String.format(
+                "Đã tạo %d vé. Mã HĐ: %s. Tổng tiền: %s",
+                maVeList.size(),
+                maHD != null ? maHD : "-",
+                formatVND(tongTien));
+
+        pendingTicketIds = maVeList;
+        exportPanel.setInfoMessage(summary);
+        wizard.show(cards, "p4");
+    }
+    
+    private void handleExportInvoice(java.awt.Component parent, String maHoaDon) {
+        if (maHoaDon == null || maHoaDon.isBlank()) {
+            JOptionPane.showMessageDialog(parent, "Không có mã hóa đơn để in.");
+            return;
         }
 
-        public String getDepart() {
-            return depart;
-        }
+        try {
+            HoaDonPdfDao dao = new HoaDonPdfDao();
+            Optional<InvoicePdfInfo> infoOpt = dao.findByMaHoaDon(maHoaDon);
+            if (infoOpt.isEmpty()) {
+                JOptionPane.showMessageDialog(parent,
+                        "Không tìm thấy dữ liệu cho hóa đơn " + maHoaDon,
+                        "Lỗi",
+                        JOptionPane.ERROR_MESSAGE);
+                return;
+            }
 
-        public String getArrive() {
-            return arrive;
-        }
+            Path exportDir = Paths.get("/BanVeTauv2/HoaDon");
+            Files.createDirectories(exportDir);
+            Path output = exportDir.resolve(maHoaDon + ".pdf");
 
-        public String getRoute() {
-            return route;
-        }
+            HDPdfExporter.export(infoOpt.get(), output.toString());
 
-        public int getCarCount() {
-            return carCount;
+            try {
+                if (Desktop.isDesktopSupported()) {
+                    Desktop.getDesktop().open(output.toFile());
+                }
+            } catch (Exception ioe) {
+                JOptionPane.showMessageDialog(parent,
+                        "Không thể mở tệp vừa lưu: " + ioe.getMessage(),
+                        "Cảnh báo",
+                        JOptionPane.WARNING_MESSAGE);
+            }
+
+            JOptionPane.showMessageDialog(parent,
+                    "Đã xuất hóa đơn: " + output.toString());
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(parent,
+                    "Có lỗi khi xuất hóa đơn: " + ex.getMessage(),
+                    "Lỗi",
+                    JOptionPane.ERROR_MESSAGE);
         }
     }
-    public static class TicketSelection {
-        private final TrainInfo train;
-        private final int car;
-        private final int seatNumber;
-        private final String seatId;
-        private final BigDecimal basePrice;
-        private final String hoTen;
-        private final String soDienThoai;
-        private final String cccd;
-        private final String namSinh;
-        private final String maLoaiVe;
-        private final String tenLoaiVe;
-        private final String maGioiTinh;
-        private final String tenGioiTinh;
 
-        TicketSelection(TrainInfo train, ManChonGheNgoi.PassengerInfo info) {
-            this.train = train;
-            ManChonGheNgoi.SeatSelection seat = info != null ? info.getSeat() : null;
-            this.car = seat != null ? seat.getSoToa() : 0;
-            this.seatNumber = seat != null ? seat.getSeatDisplayNumber() : 0;
-            this.seatId = seat != null ? seat.getMaGhe() : null;
-            this.basePrice = info != null && info.getGiaVe() != null ? info.getGiaVe() : BigDecimal.ZERO;
-            this.hoTen = trim(info != null ? info.getHoTen() : null);
-            this.soDienThoai = trim(info != null ? info.getSoDienThoai() : null);
-            this.cccd = trim(info != null ? info.getCccd() : null);
-            this.namSinh = trim(info != null ? info.getNamSinh() : null);
-            this.maLoaiVe = info != null ? info.getMaLoaiVe() : null;
-            this.tenLoaiVe = info != null ? info.getTenLoaiVe() : null;
-            this.maGioiTinh = info != null ? info.getMaGioiTinh() : null;
-            this.tenGioiTinh = info != null ? info.getTenGioiTinh() : null;
+    private void handleExportTicket(java.awt.Component parent, List<String> maVeList) {
+        if (maVeList == null || maVeList.isEmpty()) {
+            JOptionPane.showMessageDialog(parent, "Không có vé nào để in.");
+            return;
         }
 
-        TicketSelection(TrainInfo train, ManChonGheNgoi.SeatSelection seat, BigDecimal basePrice) {
-            this.train = train;
-            this.car = seat != null ? seat.getSoToa() : 0;
-            this.seatNumber = seat != null ? seat.getSeatDisplayNumber() : 0;
-            this.seatId = seat != null ? seat.getMaGhe() : null;
-            this.basePrice = basePrice != null ? basePrice : BigDecimal.ZERO;
-            this.hoTen = null;
-            this.soDienThoai = null;
-            this.cccd = null;
-            this.namSinh = null;
-            this.maLoaiVe = null;
-            this.tenLoaiVe = null;
-            this.maGioiTinh = null;
-            this.tenGioiTinh = null;
+        String selectedTicket = maVeList.get(0);
+        if (maVeList.size() > 1) {
+            Object choice = JOptionPane.showInputDialog(parent,
+                    "Chọn mã vé cần in",
+                    "In vé",
+                    JOptionPane.PLAIN_MESSAGE,
+                    null,
+                    maVeList.toArray(),
+                    selectedTicket);
+            if (choice == null) {
+                return;
+            }
+            selectedTicket = choice.toString();
         }
 
-        private static String trim(String value) {
-            return value != null ? value.trim() : null;
-        }
+        try {
+            TicketPdfDao dao = new TicketPdfDao();
+            Optional<TicketPdfInfo> infoOpt = dao.findByMaVe(selectedTicket);
+            if (infoOpt.isEmpty()) {
+                JOptionPane.showMessageDialog(parent,
+                        "Không tìm thấy dữ liệu cho mã vé " + selectedTicket,
+                        "Lỗi",
+                        JOptionPane.ERROR_MESSAGE);
+                return;
+            }
 
-        public TrainInfo getTrain() {
-            return train;
-        }
+            Path exportDir = Paths.get("/BanVeTauv2/Ve");
+            Files.createDirectories(exportDir);
+            Path output = exportDir.resolve(selectedTicket + ".pdf");
 
-        public int getCar() {
-            return car;
-        }
+            TicketPdfExporter.export(infoOpt.get(), output.toString());
 
-        public int getSeatNumber() {
-            return seatNumber;
-        }
+            try {
+                if (Desktop.isDesktopSupported()) {
+                    Desktop.getDesktop().open(output.toFile());
+                }
+            } catch (Exception ioe) {
+                // Thông báo nhưng không chặn quy trình lưu
+                JOptionPane.showMessageDialog(parent,
+                        "Không thể mở tệp vừa lưu: " + ioe.getMessage(),
+                        "Cảnh báo",
+                        JOptionPane.WARNING_MESSAGE);
+            }
 
-        public String getSeatId() {
-            return seatId;
-        }
-
-        public BigDecimal getBasePrice() {
-            return basePrice != null ? basePrice : BigDecimal.ZERO;
-        }
-
-        public String getHoTen() {
-            return hoTen;
-        }
-
-        public String getSoDienThoai() {
-            return soDienThoai;
-        }
-
-        public String getCccd() {
-            return cccd;
-        }
-
-        public String getNamSinh() {
-            return namSinh;
-        }
-
-        public String getMaLoaiVe() {
-            return maLoaiVe;
-        }
-
-        public String getTenLoaiVe() {
-            return tenLoaiVe;
-        }
-
-        public String getMaGioiTinh() {
-            return maGioiTinh;
-        }
-
-        public String getTenGioiTinh() {
-            return tenGioiTinh;
+            JOptionPane.showMessageDialog(parent,
+                    "Đã xuất vé: " + output.toString());
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(parent,
+                    "Có lỗi khi xuất vé: " + ex.getMessage(),
+                    "Lỗi",
+                    JOptionPane.ERROR_MESSAGE);
         }
     }
+
+    // =======================END PAGE =======================
 
     private static String formatVND(int amount) {
         NumberFormat nf = NumberFormat.getInstance(new Locale("vi","VN"));

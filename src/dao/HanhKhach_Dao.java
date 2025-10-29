@@ -116,6 +116,39 @@ public class HanhKhach_Dao {
         }
         return list;
     }
+// ========== TÌM KIẾM NÂNG CAO (theo từng trường) ==========
+public List<HanhKhach> search(String maHK, String tenHK, String sdt, String cccd) throws SQLException {
+    List<HanhKhach> list = new ArrayList<>();
+    String sql = """
+        SELECT hk.maHK, hk.tenHK, hk.soDienThoai, hk.cccd, hk.maGT, gt.tenGT
+        FROM HanhKhach hk
+        LEFT JOIN GioiTinh gt ON hk.maGT = gt.maGT
+        WHERE 1=1
+        """;
+
+    if (!maHK.isBlank()) sql += " AND hk.maHK LIKE ?";
+    if (!tenHK.isBlank()) sql += " AND hk.tenHK LIKE ?";
+    if (!sdt.isBlank()) sql += " AND hk.soDienThoai LIKE ?";
+    if (!cccd.isBlank()) sql += " AND hk.cccd LIKE ?";
+
+    sql += " ORDER BY hk.maHK";
+
+    try (Connection con = ConnectDB.getConnection();
+         PreparedStatement ps = con.prepareStatement(sql)) {
+        int i = 1;
+        if (!maHK.isBlank()) ps.setString(i++, "%" + maHK + "%");
+        if (!tenHK.isBlank()) ps.setString(i++, "%" + tenHK + "%");
+        if (!sdt.isBlank()) ps.setString(i++, "%" + sdt + "%");
+        if (!cccd.isBlank()) ps.setString(i++, "%" + cccd + "%");
+
+        try (ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                list.add(mapRow(rs));
+            }
+        }
+    }
+    return list;
+}
 
     // ======= BỔ SUNG CHO BÁN VÉ =======
 

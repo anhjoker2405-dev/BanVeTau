@@ -283,6 +283,88 @@ public class NhanVien_Dao {
         // nếu bạn đã có findFirstActiveMaNV() thì gọi lại
         return findFirstActiveMaNV();
     }
+    // =================== TÌM KIẾM NHÂN VIÊN ===================
+public List<NhanVienThongTin> search(String maNV, String tenNV, String sdt, String email, String cccd, String loaiNV) throws SQLException {
+    List<NhanVienThongTin> list = new ArrayList<>();
+    String sql = """
+        SELECT nv.maNV, nv.tenNV, nv.soDienThoai, nv.email, nv.cccd, nv.maLoaiNV, lnv.moTa AS loaiNV,
+               nv.ngaySinh, nv.ngayBatDauLamViec
+        FROM NhanVien nv
+        LEFT JOIN LoaiNhanVien lnv ON lnv.maLoaiNV = nv.maLoaiNV
+        WHERE 1=1
+        """;
+
+    if (!maNV.isBlank()) sql += " AND nv.maNV LIKE ?";
+    if (!tenNV.isBlank()) sql += " AND nv.tenNV LIKE ?";
+    if (!sdt.isBlank()) sql += " AND nv.soDienThoai LIKE ?";
+    if (!email.isBlank()) sql += " AND nv.email LIKE ?";
+    if (!cccd.isBlank()) sql += " AND nv.cccd LIKE ?";
+    if (!loaiNV.isBlank()) sql += " AND (lnv.moTa LIKE ? OR nv.maLoaiNV LIKE ?)";
+
+    try (Connection con = ConnectDB.getConnection();
+         PreparedStatement ps = con.prepareStatement(sql)) {
+        int i = 1;
+        if (!maNV.isBlank()) ps.setString(i++, "%" + maNV + "%");
+        if (!tenNV.isBlank()) ps.setString(i++, "%" + tenNV + "%");
+        if (!sdt.isBlank()) ps.setString(i++, "%" + sdt + "%");
+        if (!email.isBlank()) ps.setString(i++, "%" + email + "%");
+        if (!cccd.isBlank()) ps.setString(i++, "%" + cccd + "%");
+        if (!loaiNV.isBlank()) {
+            ps.setString(i++, "%" + loaiNV + "%");
+            ps.setString(i++, "%" + loaiNV + "%");
+        }
+
+        try (ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                list.add(new NhanVienThongTin(
+                        rs.getString("maNV"),
+                        rs.getString("tenNV"),
+                        rs.getDate("ngaySinh") == null ? null : rs.getDate("ngaySinh").toLocalDate(),
+                        rs.getString("soDienThoai"),
+                        rs.getString("email"),
+                        rs.getString("loaiNV"),
+                        rs.getString("maLoaiNV"),
+                        rs.getString("cccd"),
+                        rs.getDate("ngayBatDauLamViec") == null ? null : rs.getDate("ngayBatDauLamViec").toLocalDate()
+                ));
+            }
+        }
+    }
+    return list;
+}
     
-    
+	public List<NhanVienThongTin> findNhanVienChuaCoTaiKhoan() throws SQLException {
+    List<NhanVienThongTin> list = new ArrayList<>();
+    String sql = """
+        SELECT nv.maNV, nv.tenNV, nv.ngaySinh, nv.soDienThoai, nv.email,
+               nv.cccd, nv.ngayBatDauLamViec, nv.maLoaiNV,
+               COALESCE(lnv.moTa, nv.maLoaiNV) AS loaiNV
+        FROM NhanVien nv
+        LEFT JOIN TaiKhoan tk ON tk.maNV = nv.maNV
+        LEFT JOIN LoaiNhanVien lnv ON lnv.maLoaiNV = nv.maLoaiNV
+        WHERE tk.maNV IS NULL
+        ORDER BY nv.tenNV
+    """;
+    try (Connection con = ConnectDB.getConnection();
+         PreparedStatement ps = con.prepareStatement(sql);
+         ResultSet rs = ps.executeQuery()) {
+        while (rs.next()) {
+            list.add(new NhanVienThongTin(
+                rs.getString("maNV"),
+                rs.getString("tenNV"),
+                rs.getDate("ngaySinh")==null?null:rs.getDate("ngaySinh").toLocalDate(),
+                rs.getString("soDienThoai"),
+                rs.getString("email"),
+                rs.getString("loaiNV"),
+                rs.getString("maLoaiNV"),
+                rs.getString("cccd"),
+                rs.getDate("ngayBatDauLamViec")==null?null:rs.getDate("ngayBatDauLamViec").toLocalDate()
+            ));
+        }
+    }
+    return list;
+	}
+
+
+
 }

@@ -14,7 +14,7 @@ public class Main {
             //Gỡ viền mặc định của ComboBox (toàn cục)
             Border empty = BorderFactory.createEmptyBorder();
             UIManager.put("ComboBox.border", empty);
-            UIManager.put("ComboBox.editorBorder", empty);
+            UIManager.put("ComboBox.editorBoradmider", empty);
             UIManager.put("ComboBox.padding", new javax.swing.plaf.InsetsUIResource(0, 0, 0, 0));
         } catch (Exception ignored) {}
 
