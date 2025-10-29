@@ -39,8 +39,9 @@ public class ManThanhToan extends JPanel {
     private final JLabel customerIdLabel = new JLabel("-");
 
     private final JComboBox<KhuyenMai> promotionCombo = new JComboBox<>();
-    private final JSpinner vatSpinner = new JSpinner(new SpinnerNumberModel(10, 0, 30, 1));
+    private final JLabel vatValueLabel = new JLabel("10");
     private final JLabel totalAmountLabel = new JLabel("0 ₫");
+    private static final BigDecimal VAT_RATE = new BigDecimal("0.10");
 
     private final JButton btnBack = new JButton("Quay lại");
     private final JButton btnConfirm = new JButton("Xác nhận");
@@ -73,6 +74,7 @@ public class ManThanhToan extends JPanel {
     private String selectedPromotionId;
 
     public ManThanhToan() {
+        // spinner removed
         currencyFormat = NumberFormat.getInstance(new Locale("vi", "VN"));
         currencyFormat.setMaximumFractionDigits(0);
         currencyFormat.setMinimumFractionDigits(0);
@@ -232,8 +234,8 @@ public class ManThanhToan extends JPanel {
         vatLabel = new JLabel("VAT (%)");
         box.add(vatLabel, gc);
         gc.gridx = 1;
-        vatSpinner.setPreferredSize(new Dimension(80, 32));
-        box.add(vatSpinner, gc);
+        vatValueLabel.setPreferredSize(new Dimension(80, 32));
+        box.add(vatValueLabel, gc);
 
         gc.gridx = 0;
         gc.gridy = 2;
@@ -354,7 +356,7 @@ public class ManThanhToan extends JPanel {
         });
 
         promotionCombo.addActionListener(e -> recalcTotal());
-        vatSpinner.addChangeListener(e -> recalcTotal());
+        // removed spinner listener
     }
 
     private void loadPromotions() {
@@ -533,7 +535,7 @@ public class ManThanhToan extends JPanel {
             subtotal = subtotal.add(selection.getBasePrice());
         }
 
-        vatRate = new BigDecimal((Integer) vatSpinner.getValue()).divide(new BigDecimal(100), 4, RoundingMode.HALF_UP);
+        vatRate = VAT_RATE;
         KhuyenMai km = (KhuyenMai) promotionCombo.getSelectedItem();
         BigDecimal discountRate = (km != null && km.getGiamGia() != null) ? km.getGiamGia() : BigDecimal.ZERO;
         selectedPromotionId = km != null ? km.getMaKhuyenMai() : null;
@@ -613,6 +615,15 @@ public class ManThanhToan extends JPanel {
         return value;
     }
 
+
+    private static void setSpinnerEditorReadOnly(JSpinner spinner) {
+        if (spinner != null && spinner.getEditor() instanceof JSpinner.DefaultEditor) {
+            JSpinner.DefaultEditor ed = (JSpinner.DefaultEditor) spinner.getEditor();
+            ed.getTextField().setEditable(false);
+            ed.getTextField().setFocusable(false);
+        }
+    }
+
     private String formatCurrency(BigDecimal amount) {
         if (amount == null) {
             return "0 ₫";
@@ -633,7 +644,7 @@ public class ManThanhToan extends JPanel {
         this.mode = mode;
         if (mode == Mode.EXCHANGE) {
             promotionCombo.setSelectedItem(null);
-            vatSpinner.setValue(0);
+            // removed set VAT to 0 when exchange
             selectedPromotionId = null;
         }
         updateModeUI();
@@ -675,7 +686,7 @@ public class ManThanhToan extends JPanel {
     }
 
     public BigDecimal getVatRateDecimal() {
-        return vatRate != null ? vatRate : BigDecimal.ZERO;
+        return VAT_RATE;
     }
 
     public String getSelectedPromotionId() {
@@ -696,8 +707,8 @@ public class ManThanhToan extends JPanel {
         if (vatLabel != null) {
             vatLabel.setVisible(!isExchange);
         }
-        vatSpinner.setVisible(!isExchange);
-        vatSpinner.setEnabled(!isExchange);
+        vatValueLabel.setVisible(!isExchange);
+        // removed: spinner removed
         if (exchangePanel != null) {
             exchangePanel.setVisible(isExchange);
         }

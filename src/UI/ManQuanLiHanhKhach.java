@@ -1,5 +1,6 @@
 package ui;
 
+import dao.FormValidator;
 import dao.HanhKhach_Dao;
 import entity.HanhKhach;
 
@@ -90,7 +91,14 @@ public class ManQuanLiHanhKhach extends JPanel {
         add(rightTable, BorderLayout.CENTER);
 
         wireEvents();
-        loadInitialData();
+        reloadData();
+
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentShown(java.awt.event.ComponentEvent e) {
+                reloadData();
+            }
+        });
     }
 
     private JPanel buildFormPanel() {
@@ -288,7 +296,7 @@ public class ManQuanLiHanhKhach extends JPanel {
         });
     }
 
-    private void loadInitialData() {
+    private void reloadData() {
         loadGioiTinhOptions();
         refreshTable();
         resetFormForNewEntry();
@@ -499,30 +507,27 @@ public class ManQuanLiHanhKhach extends JPanel {
     }
 
     private boolean validateForm() {
-        if (txtTenHK.getText().trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Tên hành khách không được để trống", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+        String tenHK = txtTenHK.getText().trim();
+        if (!FormValidator.isValidPersonName(tenHK)) {
+            JOptionPane.showMessageDialog(this,
+                    "Tên hành khách chỉ được chứa chữ, khoảng trắng và dài từ 2-50 ký tự.",
+                    "Cảnh báo", JOptionPane.WARNING_MESSAGE);
             txtTenHK.requestFocus();
             return false;
         }
         String sdt = txtSDT.getText().trim();
-        if (sdt.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Số điện thoại không được để trống", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
-            txtSDT.requestFocus();
-            return false;
-        }
-        if (!sdt.matches("^0\\d{9,10}$")) {
-            JOptionPane.showMessageDialog(this, "Số điện thoại không hợp lệ (10-11 số)", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+        if (!FormValidator.isValidPhoneNumber(sdt)) {
+            JOptionPane.showMessageDialog(this,
+                    "Số điện thoại không hợp lệ (bắt đầu bằng 0 và gồm 10-11 số).",
+                    "Cảnh báo", JOptionPane.WARNING_MESSAGE);
             txtSDT.requestFocus();
             return false;
         }
         String cccd = txtCCCD.getText().trim();
-        if (cccd.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "CCCD không được để trống", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
-            txtCCCD.requestFocus();
-            return false;
-        }
-        if (!cccd.matches("^(\\d{9}|\\d{12})$")) {
-            JOptionPane.showMessageDialog(this, "CCCD/CMND phải gồm 9 hoặc 12 số", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+        if (!FormValidator.isValidCccd(cccd)) {
+            JOptionPane.showMessageDialog(this,
+                    "CCCD/CMND phải gồm 9 hoặc 12 chữ số.",
+                    "Cảnh báo", JOptionPane.WARNING_MESSAGE);
             txtCCCD.requestFocus();
             return false;
         }

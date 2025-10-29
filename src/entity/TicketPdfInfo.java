@@ -143,7 +143,7 @@ public class TicketPdfInfo {
         boolean khoangHasLabel = !khoang.isEmpty() && khoang.toLowerCase(Locale.ROOT).contains("khoang");
         StringBuilder sb = new StringBuilder();
         if (!seat.isEmpty()) {
-            sb.append("Số ").append(seat);
+            sb.append("Ghế ").append(seat);
         }
         if (!khoang.isEmpty()) {
             if (sb.length() > 0) {

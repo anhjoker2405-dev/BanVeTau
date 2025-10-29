@@ -21,7 +21,7 @@ public class TaiKhoan_Dao {
     public List<TaiKhoan> findAll() throws SQLException {
         final String sql = """
             SELECT tk.maTK, tk.tenDangNhap, tk.matKhau, tk.maNV, tk.trangThai,
-                   COALESCE(ltk.tenLoaiTK, tk.maLoaiTK) AS loaiTK
+                   tk.maLoaiTK, ltk.tenLoaiTK
             FROM TaiKhoan tk
             LEFT JOIN LoaiTaiKhoan ltk ON ltk.maLoaiTK = tk.maLoaiTK
             ORDER BY tk.maTK
@@ -39,7 +39,7 @@ public class TaiKhoan_Dao {
         final String like = "%" + (keyword == null ? "" : keyword.trim()) + "%";
         final String sql = """
             SELECT tk.maTK, tk.tenDangNhap, tk.matKhau, tk.maNV, tk.trangThai,
-                   COALESCE(ltk.tenLoaiTK, tk.maLoaiTK) AS loaiTK
+                   tk.maLoaiTK, ltk.tenLoaiTK
             FROM TaiKhoan tk
             LEFT JOIN LoaiTaiKhoan ltk ON ltk.maLoaiTK = tk.maLoaiTK
             WHERE tk.tenDangNhap LIKE ? OR tk.maNV LIKE ?
@@ -128,7 +128,8 @@ public class TaiKhoan_Dao {
                 }
 
                 con.commit();
-                return new TaiKhoan(maTKNew, tenDangNhap, matKhau, maNV, status, maLoaiMapped);
+                String tenLoai = fetchTenLoai(con, maLoaiMapped);
+                return new TaiKhoan(maTKNew, tenDangNhap, matKhau, maNV, status, maLoaiMapped, tenLoai);
             } catch (SQLException ex) {
                 con.rollback();
                 throw ex;
@@ -185,7 +186,7 @@ public class TaiKhoan_Dao {
     public TaiKhoan authenticate(String username, String password) {
         final String sql = """
             SELECT tk.maTK, tk.tenDangNhap, tk.matKhau, tk.maNV, tk.trangThai,
-                   COALESCE(ltk.tenLoaiTK, tk.maLoaiTK) AS loaiTK
+                   tk.maLoaiTK, ltk.tenLoaiTK
             FROM TaiKhoan tk
             LEFT JOIN LoaiTaiKhoan ltk ON ltk.maLoaiTK = tk.maLoaiTK
             WHERE LTRIM(RTRIM(LOWER(tk.tenDangNhap))) = LOWER(?)
@@ -215,7 +216,23 @@ public class TaiKhoan_Dao {
                 rs.getString("matKhau"),
                 rs.getString("maNV"),
                 rs.getString("trangThai"),
-                rs.getString("loaiTK")
+                rs.getString("maLoaiTK"),
+                rs.getString("tenLoaiTK")
         );
+    }
+    private String fetchTenLoai(Connection con, String maLoaiTK) throws SQLException {
+        if (maLoaiTK == null) {
+            return null;
+        }
+        final String sql = "SELECT tenLoaiTK FROM LoaiTaiKhoan WHERE maLoaiTK = ?";
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, maLoaiTK);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString(1);
+                }
+            }
+        }
+        return null;
     }
 }

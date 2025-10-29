@@ -425,7 +425,8 @@ public class QuanLyTaiKhoanPanel extends JPanel {
             List<TaiKhoan> list = dao.findAll();
             model.setRowCount(0);
             for (TaiKhoan tk : list) {
-                model.addRow(new Object[]{ tk.getMaTK(), tk.getTenDangNhap(), tk.getMaNV(), tk.getLoaiTK(), tk.getTrangThai() });
+                String loaiTkDisplay = tk.getTenLoaiTK() != null ? tk.getTenLoaiTK() : tk.getMaLoaiTK();
+                model.addRow(new Object[]{ tk.getMaTK(), tk.getTenDangNhap(), tk.getMaNV(), loaiTkDisplay, tk.getTrangThai() });
             }
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Lỗi tải danh sách: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);

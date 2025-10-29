@@ -189,7 +189,7 @@ public class TimKiemHoaDonPanel extends JPanel {
                         nullToDash(hd.getTenHanhKhach()),
                         nullToDash(hd.getSdtHanhKhach()),
                         nullToDash(hd.getTenNhanVien()),
-                        hd.getVat() == null ? "-" : hd.getVat().toPlainString() + "%",
+                        formatVat(hd.getVat()),
                         vnd.format(hd.getTongTien() == null ? BigDecimal.ZERO : hd.getTongTien())
                 });
             }
@@ -363,4 +363,22 @@ public class TimKiemHoaDonPanel extends JPanel {
                 c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE));
     }
     private static String nullToDash(String s){ return (s == null || s.isBlank()) ? "-" : s; }
+    
+    private static String formatVat(BigDecimal vat) {
+        if (vat == null) {
+            return "-";
+        }
+
+        BigDecimal value = vat;
+        if (value.compareTo(BigDecimal.ZERO) >= 0 && value.compareTo(BigDecimal.ONE) < 0) {
+            value = value.multiply(BigDecimal.valueOf(100));
+        }
+
+        value = value.stripTrailingZeros();
+        if (value.scale() < 0) {
+            value = value.setScale(0);
+        }
+
+        return value.toPlainString() + "%";
+    }
 }

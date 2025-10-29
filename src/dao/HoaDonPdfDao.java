@@ -30,7 +30,7 @@ public class HoaDonPdfDao {
 
     private static final String SQL_ITEMS =
             "SELECT ct.maVe, ct.soLuongVe, ct.donGia, " +
-            "       ct.maHoaDon, v.maChuyenTau, ch.maChuyenTau AS maChuyenTauDisplay, " +
+            "       CAST(ROUND(dbo.fn_KhoangCachKM(lt.maGaDi, lt.maGaDen) * lt.soTienMotKm, 0) AS decimal(18,0)) AS giaCoSo, " +
             "       tau.maTau, tau.tenTau, " +
             "       tt.soToa, g.soGhe, kt.tenKhoangTau, " +
             "       gd.tenGa AS tenGaDi, ga.tenGa AS tenGaDen " +
@@ -111,35 +111,59 @@ public class HoaDonPdfDao {
         if (soLuong <= 0) {
             soLuong = 1;
         }
-        BigDecimal donGia = rs.getBigDecimal("donGia");
-        if (donGia == null) {
-            donGia = BigDecimal.ZERO;
-        }
+        BigDecimal donGia = sanitizeMoney(rs.getBigDecimal("donGia"));
+        BigDecimal giaCoSoRaw = rs.getBigDecimal("giaCoSo");
+        BigDecimal giaCoSo = giaCoSoRaw != null ? sanitizeMoney(giaCoSoRaw) : null;
 
         BigDecimal qty = BigDecimal.valueOf(soLuong);
         BigDecimal thanhTienCoThue = donGia.multiply(qty);
 
-        BigDecimal thanhTienChuaThue;
-        if (vatRate != null && vatRate.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal divisor = BigDecimal.ONE.add(vatRate);
-            thanhTienChuaThue = thanhTienCoThue.divide(divisor, 0, RoundingMode.HALF_UP);
-        } else {
+        BigDecimal donGiaChuaThue = resolveDonGiaChuaThue(donGia, giaCoSo, vatRate);
+        BigDecimal thanhTienChuaThue = donGiaChuaThue.multiply(qty);
+        if (thanhTienChuaThue.compareTo(thanhTienCoThue) > 0 && thanhTienCoThue.signum() >= 0) {
             thanhTienChuaThue = thanhTienCoThue;
+            donGiaChuaThue = thanhTienChuaThue.divide(qty, 0, RoundingMode.HALF_UP);
+        }
+        if (thanhTienChuaThue.compareTo(BigDecimal.ZERO) < 0) {
+            thanhTienChuaThue = BigDecimal.ZERO;
+            donGiaChuaThue = BigDecimal.ZERO;
         }
 
         BigDecimal thue = thanhTienCoThue.subtract(thanhTienChuaThue);
-        BigDecimal donGiaChuaThue = thanhTienChuaThue.divide(qty, 0, RoundingMode.HALF_UP);
+        if (thue.compareTo(BigDecimal.ZERO) < 0) {
+            thue = BigDecimal.ZERO;
+        }
 
         String tenDichVu = buildServiceDescription(rs);
 
         return new InvoicePdfItem(maVe, tenDichVu, soLuong,
                 donGiaChuaThue, thanhTienChuaThue, thue, thanhTienCoThue);
     }
+    
+    private BigDecimal resolveDonGiaChuaThue(BigDecimal donGiaCoThue, BigDecimal giaCoSo, BigDecimal vatRate) {
+        if (giaCoSo != null && giaCoSo.compareTo(BigDecimal.ZERO) > 0) {
+            return giaCoSo;
+        }
+        if (vatRate != null && vatRate.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal divisor = BigDecimal.ONE.add(vatRate);
+            if (divisor.compareTo(BigDecimal.ZERO) != 0) {
+                return donGiaCoThue.divide(divisor, 0, RoundingMode.HALF_UP);
+            }
+        }
+        return donGiaCoThue;
+    }
+
+    private BigDecimal sanitizeMoney(BigDecimal value) {
+        if (value == null) {
+            return BigDecimal.ZERO;
+        }
+        return value.setScale(0, RoundingMode.HALF_UP);
+    }
 
     private String buildServiceDescription(ResultSet rs) throws SQLException {
-        String chuyenTauCode = safe(rs.getString("maChuyenTauDisplay"));
+        String chuyenTauCode = safe(getStringIfExists(rs, "maChuyenTauDisplay"));
         if (chuyenTauCode.isBlank()) {
-            chuyenTauCode = safe(rs.getString("maChuyenTau"));
+            chuyenTauCode = safe(getStringIfExists(rs, "maChuyenTau"));
         }
         String maTau = safe(rs.getString("maTau"));
         String tenTau = safe(rs.getString("tenTau"));
@@ -195,5 +219,28 @@ public class HoaDonPdfDao {
 
     private String safe(String value) {
         return value != null ? value.trim() : "";
+    }
+    private String getStringIfExists(ResultSet rs, String columnLabel) throws SQLException {
+        try {
+            return rs.getString(columnLabel);
+        } catch (SQLException ex) {
+            if (isMissingColumn(ex)) {
+                return null;
+            }
+            throw ex;
+        }
+    }
+
+    private boolean isMissingColumn(SQLException ex) {
+        String state = ex.getSQLState();
+        if (state != null && state.equalsIgnoreCase("S0022")) {
+            return true;
+        }
+        String message = ex.getMessage();
+        if (message == null) {
+            return false;
+        }
+        String normalized = message.toLowerCase();
+        return normalized.contains("column") && normalized.contains("not valid");
     }
 }

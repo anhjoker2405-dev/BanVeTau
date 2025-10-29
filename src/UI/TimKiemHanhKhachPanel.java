@@ -22,7 +22,7 @@ public class TimKiemHanhKhachPanel extends JPanel {
     private final JTextField txtSDT = new JTextField();
     private final JTextField txtCCCD = new JTextField();
 
-    private final JButton btnTim = new JButton("Tìm khách hàng");
+    private final JButton btnTim = new JButton("Tìm hành khách");
     private final JButton btnLamMoi = new JButton("Làm mới");
 
     private final DefaultTableModel tableModel = new DefaultTableModel(

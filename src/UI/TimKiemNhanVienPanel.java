@@ -22,7 +22,7 @@ public class TimKiemNhanVienPanel extends JPanel {
     private final JTextField txtSDT = new JTextField();
     private final JTextField txtEmail = new JTextField();
     private final JTextField txtCCCD = new JTextField();
-    private final JTextField txtLoaiNV = new JTextField();
+    private final JComboBox<String> cboLoaiNV = new JComboBox<>(new String[]{"", "Nhân viên quản lí", "Nhân viên bán vé"});
 
     private final JButton btnTim = new JButton("Tìm kiếm");
     private final JButton btnLamMoi = new JButton("Làm mới");
@@ -93,7 +93,7 @@ public class TimKiemNhanVienPanel extends JPanel {
         addFilter(panel, gbc, row++, new JLabel("SĐT:"), txtSDT);
         addFilter(panel, gbc, row++, new JLabel("Email:"), txtEmail);
         addFilter(panel, gbc, row++, new JLabel("CCCD:"), txtCCCD);
-        addFilter(panel, gbc, row++, new JLabel("Loại NV:"), txtLoaiNV);
+        addFilter(panel, gbc, row++, new JLabel("Loại NV:"), cboLoaiNV);
 
         JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
         actionPanel.setOpaque(false);
@@ -142,7 +142,7 @@ public class TimKiemNhanVienPanel extends JPanel {
         txtSDT.setText("");
         txtEmail.setText("");
         txtCCCD.setText("");
-        txtLoaiNV.setText("");
+        cboLoaiNV.setSelectedIndex(0);
         performSearch();
     }
 
@@ -154,7 +154,7 @@ public class TimKiemNhanVienPanel extends JPanel {
                     txtSDT.getText().trim(),
                     txtEmail.getText().trim(),
                     txtCCCD.getText().trim(),
-                    txtLoaiNV.getText().trim()
+                    (cboLoaiNV.getSelectedItem()==null?"":cboLoaiNV.getSelectedItem().toString().trim())
             );
 
             tableModel.setRowCount(0);
@@ -187,8 +187,9 @@ public class TimKiemNhanVienPanel extends JPanel {
     }
 
     private void styleInputs() {
-        for (JTextField f : new JTextField[]{txtMaNV, txtTenNV, txtSDT, txtEmail, txtCCCD, txtLoaiNV})
+        for (JTextField f : new JTextField[]{txtMaNV, txtTenNV, txtSDT, txtEmail, txtCCCD})
             styleInputComponent(f);
+        styleInputComponent(cboLoaiNV);
 
         styleButton(btnTim, new Color(66, 133, 244), new Color(52, 103, 188), Color.WHITE);
         styleButton(btnLamMoi, new Color(226, 232, 247), new Color(201, 210, 233), new Color(45, 70, 120));

@@ -1,5 +1,6 @@
 package ui;
 
+import dao.FormValidator;
 import dao.GiaVe_Dao;
 import dao.HanhKhach_Dao;
 import dao.LoaiVe_Dao;
@@ -801,6 +802,61 @@ public class ManChonGheNgoi extends JPanel {
                     maGioiTinh, tenGioiTinh, maLoaiVe, tenLoaiVe, giaVe));
         }
         return result;
+    }
+    
+    public boolean validatePassengerForms() {
+        if (ticketForms.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                    "Chưa có ghế nào được chọn.",
+                    "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+            return false;
+        }
+        for (Map.Entry<SeatSelection, TicketForm> entry : ticketForms.entrySet()) {
+            SeatSelection seat = entry.getKey();
+            TicketForm form = entry.getValue();
+            if (form == null) {
+                continue;
+            }
+            String seatInfo = seat != null
+                    ? String.format("Toa %d, Ghế %s", seat.getSoToa(), seatLabel(seat))
+                    : "ghế đã chọn";
+
+            String hoTen = form.nameField != null ? form.nameField.getText().trim() : "";
+            if (!FormValidator.isValidPersonName(hoTen)) {
+                JOptionPane.showMessageDialog(this,
+                        "Họ tên hành khách tại " + seatInfo +
+                                " không hợp lệ (chỉ bao gồm chữ, khoảng trắng và dài 2-50 ký tự).",
+                        "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+                if (form.nameField != null) {
+                    form.nameField.requestFocus();
+                }
+                return false;
+            }
+
+            String soDienThoai = form.phoneField != null ? form.phoneField.getText().trim() : "";
+            if (!FormValidator.isValidPhoneNumber(soDienThoai)) {
+                JOptionPane.showMessageDialog(this,
+                        "Số điện thoại tại " + seatInfo +
+                                " không hợp lệ (bắt đầu bằng 0 và gồm 10-11 số).",
+                        "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+                if (form.phoneField != null) {
+                    form.phoneField.requestFocus();
+                }
+                return false;
+            }
+
+            String cccd = form.cccdField != null ? form.cccdField.getText().trim() : "";
+            if (!FormValidator.isValidCccd(cccd)) {
+                JOptionPane.showMessageDialog(this,
+                        "CCCD/CMND tại " + seatInfo + " phải gồm 9 hoặc 12 chữ số.",
+                        "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+                if (form.cccdField != null) {
+                    form.cccdField.requestFocus();
+                }
+                return false;
+            }
+        }
+        return true;
     }
     
     private void fillTicketFormFromCommon(TicketForm form) {

@@ -1,5 +1,6 @@
 package ui;
 
+import dao.RolePermissionDao;
 import dao.Ve_Dao;
 import entity.TaiKhoan;
 
@@ -11,7 +12,6 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 public class MainFrame extends JFrame {
-    
     
     // Cards for content
     private final CardLayout cardLayout = new CardLayout();
@@ -29,6 +29,17 @@ public class MainFrame extends JFrame {
 
     // Current user
     private final TaiKhoan tk;
+    private final RolePermissionDao rolePermissionDao = new RolePermissionDao();
+    private final RolePermissionDao.RolePermission permission;
+
+    // Menu items cần ẩn/hiện theo quyền
+    private JToggleButton danhMucToggle;
+    private JPanel danhMucGroup;
+    private JButton menuQuanLyTaiKhoanBtn;
+    private JButton menuQuanLyNhanVienBtn;
+    private JButton menuQuanLyKhuyenMaiBtn;
+    private JButton menuQuanLyChuyenTauBtn;
+    private JButton menuQuanLyHanhKhachBtn;
 
     // ===================== Colors ======================
     // Sidebar nền sáng, chữ tối
@@ -45,24 +56,20 @@ public class MainFrame extends JFrame {
     private static final int NAV_RADIUS = 14;
     // ===================================================
 
-    // Helper: kiểm tra quyền quản lý
-    private boolean isManager() {
-        String role = (tk != null ? tk.getLoaiTK() : null);
-        return role != null && role.equalsIgnoreCase("LTK-01");
-    }
 
     // Constructor
     public MainFrame(TaiKhoan tk) {
         this.tk = tk;
+        this.permission = rolePermissionDao.resolve(tk);
         setTitle("Đường sắt Sài Gòn - Hệ thống bán vé");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1200, 750);
+        setSize(1200, 750); 
         setExtendedState(JFrame.MAXIMIZED_BOTH);
         setLocationRelativeTo(null);
 
         JPanel sidebar = buildSidebar();      // << menu mới nền sáng, không header admin
         JPanel topbar = buildTopbar();
-        buildCards();
+        buildCards();   
         banVePanel.setBookingCompletionListener(() -> quanLyChuyenTauPanel.reloadData());
         
 
@@ -72,7 +79,8 @@ public class MainFrame extends JFrame {
         root.add(topbar, BorderLayout.NORTH);
         root.add(content, BorderLayout.CENTER);
         setContentPane(root);
-
+        
+        applyPermissions();
         cardLayout.show(content, "home");
     }
     
@@ -99,7 +107,18 @@ public class MainFrame extends JFrame {
         top.setBackground(new Color(101, 150, 248));
         top.setBorder(new EmptyBorder(8, 12, 8, 12));
 
-        String role = tk != null && tk.getLoaiTK() != null ? tk.getLoaiTK() : "Nhân Viên";
+        String role;
+        if (permission != null) {
+            if (permission.getTenLoaiTK() != null) {
+                role = permission.getTenLoaiTK();
+            } else if (permission.getMaLoaiTK() != null) {
+                role = permission.getMaLoaiTK();
+            } else {
+                role = "Nhân viên";
+            }
+        } else {
+            role = "Nhân viên";
+        }
         String name = tk != null && tk.getTenDangNhap() != null ? tk.getTenDangNhap() : "User";
 
         JLabel title = new JLabel("Đường sắt Sài Gòn");
@@ -120,10 +139,8 @@ public class MainFrame extends JFrame {
 
         top.add(title, BorderLayout.WEST);
         top.add(right, BorderLayout.EAST);
-
         return top;
     }
-
     // ====================== Sidebar (đã chỉnh) ======================
     private JPanel buildSidebar() {
         // Panel menu nền sáng, phẳng, không gradient, không avatar/admin, không viền
@@ -146,17 +163,22 @@ public class MainFrame extends JFrame {
         menu.add(Box.createVerticalStrut(6));
 
         // --------- Danh mục ----------
-        JToggleButton btnDanhMuc = makeToggle("Danh mục");
-        JPanel dmGroup = groupPanel(
-            makeChild("Quản lí khuyến mãi", () -> cardLayout.show(content, "khuyenmai")),
-            makeChild("Quản lí tài khoản",  () -> cardLayout.show(content, "quanly_taikhoan")),
-            makeChild("Quản lí Nhân viên",  () -> cardLayout.show(content, "quanly_nhanvien")),
-            makeChild("Quản lý chuyến tàu",  () -> cardLayout.show(content, "quanly_chuyentau")),
-            makeChild("Quản lý hành khách",  () -> cardLayout.show(content, "quanly_hành khách"))
+        danhMucToggle = makeToggle("Danh mục");
+        menuQuanLyKhuyenMaiBtn = makeChild("Quản lí khuyến mãi", () -> cardLayout.show(content, "khuyenmai"));
+        menuQuanLyTaiKhoanBtn = makeChild("Quản lí tài khoản",  () -> cardLayout.show(content, "quanly_taikhoan"));
+        menuQuanLyNhanVienBtn = makeChild("Quản lí Nhân viên",  () -> cardLayout.show(content, "quanly_nhanvien"));
+        menuQuanLyChuyenTauBtn = makeChild("Quản lý chuyến tàu",  () -> cardLayout.show(content, "quanly_chuyentau"));
+        menuQuanLyHanhKhachBtn = makeChild("Quản lý hành khách",  () -> cardLayout.show(content, "quanly_hành khách"));
+        danhMucGroup = groupPanel(
+            menuQuanLyKhuyenMaiBtn,
+            menuQuanLyTaiKhoanBtn,
+            menuQuanLyNhanVienBtn,
+            menuQuanLyChuyenTauBtn,
+            menuQuanLyHanhKhachBtn
         );
-        btnDanhMuc.addActionListener(e -> { dmGroup.setVisible(btnDanhMuc.isSelected()); menu.revalidate(); menu.repaint(); });
-        menu.add(btnDanhMuc);
-        menu.add(dmGroup);
+        danhMucToggle.addActionListener(e -> { danhMucGroup.setVisible(danhMucToggle.isSelected()); menu.revalidate(); menu.repaint(); });
+        menu.add(danhMucToggle);
+        menu.add(danhMucGroup);
         menu.add(Box.createVerticalStrut(6));
 
         // --------- Xử lý ----------
@@ -176,8 +198,8 @@ public class MainFrame extends JFrame {
         // --------- Tìm kiếm ----------
         JToggleButton btnSearch = makeToggle("Tìm kiếm");
         JPanel searchGroup = groupPanel(
-            makeChild("Tìm kiếm chuyến đi",  () -> cardLayout.show(content, "timkiem_chuyendi")),
-            makeChild("Tìm kiếm khách hàng", () -> cardLayout.show(content, "timkiem_khachhang")),
+            makeChild("Tìm kiếm chuyến tàu",  () -> cardLayout.show(content, "timkiem_chuyendi")),
+            makeChild("Tìm kiếm hành khách", () -> cardLayout.show(content, "timkiem_hanhkhach")),
             makeChild("Tìm kiếm nhân viên",  () -> cardLayout.show(content, "timkiem_nhanvien")),
             makeChild("Tìm kiếm hóa đơn",    () -> cardLayout.show(content, "timkiem_hoadon")),
             makeChild("Tìm kiếm khuyến mãi",   () -> cardLayout.show(content, "timkiem_khuyenmai"))
@@ -375,16 +397,6 @@ public class MainFrame extends JFrame {
         };
     }
 
-    // Giữ lại method header cũ (không còn được gọi) — bạn có thể xóa nếu muốn
-    private JComponent buildSidebarHeader() { return new JPanel(); }
-
-    private String getInitials(String value) {
-        if (value == null || value.isBlank()) return "U";
-        String[] parts = value.trim().split("\\s+");
-        if (parts.length == 1) return parts[0].substring(0, 1).toUpperCase();
-        return (parts[0].substring(0, 1) + parts[parts.length - 1].substring(0, 1)).toUpperCase();
-    }
-
     private void buildCards() {
         content.add(buildHomePanel(), "home");
 
@@ -403,12 +415,55 @@ public class MainFrame extends JFrame {
         content.add(quanLyChuyenTauPanel,             "quanly_chuyentau");
 
         content.add(new TimKiemChuyenDiPanel(),           "timkiem_chuyendi");
-        content.add(new TimKiemHanhKhachPanel(),   "timkiem_khachhang");
+        content.add(new TimKiemHanhKhachPanel(),   "timkiem_hanhkhach");
         content.add(new TimKiemNhanVienPanel(),    "timkiem_nhanvien");
         content.add(new TimKiemHoaDonPanel(),      "timkiem_hoadon");
         content.add(new TimKiemKhuyenMaiPanel(),    "timkiem_khuyenmai");
 
         content.add(new ThongKeDoanhThuPanel(),  "thongke_doanhthu");
+    }
+    
+    private void applyPermissions() {
+        if (permission == null) {
+            return;
+        }
+
+        if (permission.hideManagementMenus()) {
+            hideMenuItem(menuQuanLyKhuyenMaiBtn);
+            hideMenuItem(menuQuanLyTaiKhoanBtn);
+            hideMenuItem(menuQuanLyNhanVienBtn);
+            hideMenuItem(menuQuanLyChuyenTauBtn);
+            hideMenuItem(menuQuanLyHanhKhachBtn);
+        }
+
+        updateDanhMucToggleState();
+    }
+
+    private void hideMenuItem(AbstractButton button) {
+        if (button == null) {
+            return;
+        }
+        button.setVisible(false);
+        button.setEnabled(false);
+    }
+
+    private void updateDanhMucToggleState() {
+        if (danhMucGroup == null || danhMucToggle == null) {
+            return;
+        }
+        boolean hasVisibleChild = false;
+        for (Component component : danhMucGroup.getComponents()) {
+            if (component.isVisible()) {
+                hasVisibleChild = true;
+                break;
+            }
+        }
+
+        if (!hasVisibleChild) {
+            danhMucGroup.setVisible(false);
+            danhMucToggle.setVisible(false);
+            danhMucToggle.setEnabled(false);
+        }
     }
 
     private JPanel buildHomePanel() {
@@ -443,15 +498,15 @@ public class MainFrame extends JFrame {
         }
     }
 
-    private JPanel simplePanel(String title) {
-        JPanel p = new JPanel(new BorderLayout());
-        p.setBorder(new EmptyBorder(16, 16, 16, 16));
-
-        JLabel lb = new JLabel(title, SwingConstants.LEFT);
-        lb.setFont(lb.getFont().deriveFont(Font.BOLD, 20f));
-        p.add(lb, BorderLayout.NORTH);
-
-        p.add(new JLabel("Nội dung sẽ được phát triển ở đây...", SwingConstants.CENTER), BorderLayout.CENTER);
-        return p;
-    }
+//    private JPanel simplePanel(String title) {
+//        JPanel p = new JPanel(new BorderLayout());
+//        p.setBorder(new EmptyBorder(16, 16, 16, 16));
+//
+//        JLabel lb = new JLabel(title, SwingConstants.LEFT);
+//        lb.setFont(lb.getFont().deriveFont(Font.BOLD, 20f));
+//        p.add(lb, BorderLayout.NORTH);
+//
+//        p.add(new JLabel("Nội dung sẽ được phát triển ở đây...", SwingConstants.CENTER), BorderLayout.CENTER);
+//        return p;
+//    }
 }

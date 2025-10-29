@@ -2,6 +2,7 @@ package ui;
 
 import com.toedter.calendar.JDateChooser;
 import com.toedter.calendar.JTextFieldDateEditor;
+import dao.FormValidator;
 import dao.NhanVien_Dao;
 import entity.LoaiNhanVien;
 import entity.NhanVienThongTin;
@@ -577,23 +578,35 @@ public class QuanLyNhanVien extends JPanel {
     }
 
     private boolean validateForm() {
-        if (txtTenNV.getText().trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Tên nhân viên không được để trống", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+        String tenNV = txtTenNV.getText().trim();
+        if (!FormValidator.isValidPersonName(tenNV)) {
+            JOptionPane.showMessageDialog(this,
+                    "Tên nhân viên chỉ được chứa chữ, khoảng trắng và dài từ 2-50 ký tự.",
+                    "Cảnh báo", JOptionPane.WARNING_MESSAGE);
             txtTenNV.requestFocus();
             return false;
         }
-        if (txtSDT.getText().trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Số điện thoại không được để trống", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+        String sdt = txtSDT.getText().trim();
+        if (!FormValidator.isValidPhoneNumber(sdt)) {
+            JOptionPane.showMessageDialog(this,
+                    "Số điện thoại không hợp lệ (bắt đầu bằng 0 và gồm 10-11 số).",
+                    "Cảnh báo", JOptionPane.WARNING_MESSAGE);
             txtSDT.requestFocus();
             return false;
         }
-        if (txtEmail.getText().trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Email không được để trống", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+        String email = txtEmail.getText().trim();
+        if (!FormValidator.isValidEmail(email)) {
+            JOptionPane.showMessageDialog(this,
+                    "Email không đúng định dạng.",
+                    "Cảnh báo", JOptionPane.WARNING_MESSAGE);
             txtEmail.requestFocus();
             return false;
         }
-        if (txtCCCD.getText().trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "CCCD không được để trống", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+        String cccd = txtCCCD.getText().trim();
+        if (!FormValidator.isValidCccd(cccd)) {
+            JOptionPane.showMessageDialog(this,
+                    "CCCD/CMND phải gồm 9 hoặc 12 chữ số.",
+                    "Cảnh báo", JOptionPane.WARNING_MESSAGE);
             txtCCCD.requestFocus();
             return false;
         }
