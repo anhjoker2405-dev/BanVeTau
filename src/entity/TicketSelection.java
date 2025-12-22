@@ -1,7 +1,7 @@
 package entity;
 
 import java.math.BigDecimal;
-
+// -- Dữ liệu vé đã chọn chuyển sang bước thanh toán và in ấn --
 public class TicketSelection {
     private final TrainInfo train;
     private final int car;

@@ -1,5 +1,7 @@
 package ui;
 
+// ================== CHỨC NĂNG BÁN VÉ · LUỒNG CHÍNH ==================
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.BorderLayout;
@@ -44,8 +46,6 @@ import util.HDPdfExporter;
 
 public class BanVe extends JPanel {
 
-    private static final Color BLUE = new Color(47, 107, 255);
-    private static final Color BLUE_HOVER = new Color(47, 107, 255, 30);
     private static final Color PANEL_BG = new Color(245, 248, 253);
 
     private final CardLayout wizard = new CardLayout();
@@ -60,7 +60,8 @@ public class BanVe extends JPanel {
     private final List<TicketSelection> selections = new ArrayList<>();
     private ManChonChuyen.Trip selectedTrip;
     private Runnable bookingCompletionListener;
-
+    
+// ----- CHỨC NĂNG BÁN VÉ: Khởi tạo luồng bán vé gồm 4 màn -----
     public BanVe() {
         setLayout(new BorderLayout());
         setBackground(PANEL_BG);
@@ -95,7 +96,8 @@ public class BanVe extends JPanel {
 
         showStep(1);
     }
-
+    
+    // ----- CHỨC NĂNG BÁN VÉ: Điều hướng giữa các màn -----
     private void showStep(int step) {
         switch (step) {
             case 1 -> {
@@ -112,6 +114,7 @@ public class BanVe extends JPanel {
 
     // ======================= PAGE 1 =======================
     
+    // ----- CHỨC NĂNG BÁN VÉ: Bước 1 - Tìm và chọn chuyến đi -----
     private class ChooseTripPage extends JPanel {
         private final CardLayout subCards = new CardLayout();
         private final JPanel subPanel = new JPanel(subCards);
@@ -152,7 +155,8 @@ public class BanVe extends JPanel {
                 executeSearch(searchPanel.getGaDi(), searchPanel.getGaDen(), searchPanel.getNgayDi());
             });
         }
-
+        
+        // ----- CHỨC NĂNG BÁN VÉ: Thực thi tìm kiếm chuyến đi -----
         private void executeSearch(String gaDi, String gaDen, LocalDate ngay) {
             if (ngay == null) {
                 ngay = LocalDate.now();
@@ -218,6 +222,8 @@ public class BanVe extends JPanel {
 
 
     // ======================= PAGE 2 =======================
+    
+    // ----- CHỨC NĂNG BÁN VÉ: Bước 2 - Chọn ghế và nhập thông tin -----
     private void handleTripSelection(ManChonChuyen.Trip trip) {
         if (trip == null) {
             return;
@@ -249,7 +255,8 @@ public class BanVe extends JPanel {
     private void handleSeatSelectionNext() {
         goToPaymentStep();
     }
-
+    
+    // ----- CHỨC NĂNG BÁN VÉ: Chuẩn bị dữ liệu trước khi qua bước thanh toán -----
     private void goToPaymentStep() {
         if (!page2.validatePassengerForms()) {
             return;
@@ -264,6 +271,7 @@ public class BanVe extends JPanel {
         wizard.show(cards, "p3");
     }
 
+    // ----- CHỨC NĂNG BÁN VÉ: Đồng bộ ghế được chọn sang bước thanh toán -----
     private boolean syncSelectionsFromSeatPage() {
         List<SeatSelection> seats = page2.getSelectedSeats();
         if (seats.isEmpty()) {
@@ -309,6 +317,7 @@ public class BanVe extends JPanel {
     }
     //Xử lý thanh toán & lưu SQL
     /** ĐÃ SỬA: không hard-code NV/HK; lấy đúng từ SQL */
+    // ----- CHỨC NĂNG BÁN VÉ: Bước 3 - Thực hiện thanh toán và tạo chứng từ -----
     private void thucHienThanhToan() {
         if (selections.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Chưa có ghế nào được chọn.");
@@ -434,6 +443,7 @@ public class BanVe extends JPanel {
         wizard.show(cards, "p4");
     }
     
+    // ----- CHỨC NĂNG BÁN VÉ: Xuất hóa đơn PDF sau thanh toán -----
     private void handleExportInvoice(java.awt.Component parent, String maHoaDon) {
         if (maHoaDon == null || maHoaDon.isBlank()) {
             JOptionPane.showMessageDialog(parent, "Không có mã hóa đơn để in.");
@@ -478,7 +488,8 @@ public class BanVe extends JPanel {
                     JOptionPane.ERROR_MESSAGE);
         }
     }
-
+    
+    // ----- CHỨC NĂNG BÁN VÉ: Bước 4 - Xuất vé PDF sau thanh toán -----
     private void handleExportTicket(java.awt.Component parent, List<String> maVeList) {
         if (maVeList == null || maVeList.isEmpty()) {
             JOptionPane.showMessageDialog(parent, "Không có vé nào để in.");
@@ -543,7 +554,7 @@ public class BanVe extends JPanel {
     // =======================END PAGE =======================
 
     private static String formatVND(int amount) {
-        NumberFormat nf = NumberFormat.getInstance(new Locale("vi","VN"));
+        NumberFormat nf = NumberFormat.getInstance(Locale.of("vi","VN"));
         return nf.format(amount) + "₫";
     }
 }

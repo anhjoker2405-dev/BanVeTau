@@ -1,5 +1,5 @@
 package ui;
-
+// ================== CHỨC NĂNG XUẤT HÓA ĐƠN ==================
 import dao.HoaDonPdfDao;
 import dao.HoaDon_Dao;
 import entity.HoaDonView;
@@ -58,12 +58,13 @@ public class XuatHoaDonPanel extends JPanel {
 
     // ======= Table =======
     private final DefaultTableModel model = new DefaultTableModel(
-            new String[]{"Mã hóa đơn","Ngày lập","Khách hàng","SĐT","Nhân viên","VAT","Tổng tiền"}, 0){
+            new String[]{"Mã Hóa Đơn","Ngày Lập","Hành Khách","Số Điện Thoại","Nhân Viên","VAT","Tổng Tiền"}, 0){
         @Override public boolean isCellEditable(int r, int c){ return false; }
     };
     private final JTable table = new JTable(model);
     private final List<HoaDonView> currentData = new ArrayList<>();
 
+    // -- Khởi tạo màn hình xuất hoá đơn với bộ lọc và bảng kết quả --
     public XuatHoaDonPanel() {
         setOpaque(false);
         setLayout(new BorderLayout(16, 16));
@@ -84,11 +85,12 @@ public class XuatHoaDonPanel extends JPanel {
     }
 
     // ======= Header =======
+    // -- Khu vực tiêu đề giới thiệu chức năng xuất hoá đơn --
     private JPanel buildHeaderPanel() {
         CardPanel header = new CardPanel(new BorderLayout());
         header.setBorder(new EmptyBorder(18, 24, 18, 24));
 
-        JLabel title = new JLabel("Xuất hóa đơn");
+        JLabel title = new JLabel("Xuất Hóa Đơn");
         title.setFont(TITLE_FONT.deriveFont(20f));
         title.setForeground(new Color(33, 56, 110));
 
@@ -107,6 +109,7 @@ public class XuatHoaDonPanel extends JPanel {
     }
 
     // ======= Filters =======
+    // -- Tạo các bộ lọc tìm kiếm hoá đơn theo mã, ngày, nhân viên, hành khách --
     private JPanel buildFilterPanel() {
         CardPanel panel = new CardPanel(new GridBagLayout());
         panel.setBorder(new EmptyBorder(20, 24, 12, 24));
@@ -115,11 +118,11 @@ public class XuatHoaDonPanel extends JPanel {
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         int col = 0;
-        addFilter(panel, gbc, 0, col++, new JLabel("Mã hóa đơn:"), txtMaHD);
+        addFilter(panel, gbc, 0, col++, new JLabel("Mã Hóa Đơn:"), txtMaHD);
         addDateTimeFilter(panel, gbc, 1, 0, chkTu,  dcTu,  spTu);
         addDateTimeFilter(panel, gbc, 1, 1, chkDen, dcDen, spDen);
-        addFilter(panel, gbc, 2, 0, new JLabel("Mã NV:"), txtMaNV);
-        addFilter(panel, gbc, 2, 1, new JLabel("Mã HK:"), txtMaHK);
+        addFilter(panel, gbc, 2, 0, new JLabel("Mã Nhân Viên:"), txtMaNV);
+        addFilter(panel, gbc, 2, 1, new JLabel("Mã Hành Khách:"), txtMaHK);
 
         JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
         actionPanel.setOpaque(false);
@@ -143,6 +146,7 @@ public class XuatHoaDonPanel extends JPanel {
         return panel;
     }
 
+    // -- Xây dựng bảng hiển thị danh sách hoá đơn tìm được --
     private JPanel buildTablePanel() {
         CardPanel panel = new CardPanel(new BorderLayout(0, 12));
         panel.setBorder(new EmptyBorder(20, 24, 24, 24));
@@ -161,8 +165,10 @@ public class XuatHoaDonPanel extends JPanel {
     }
 
     // ======= Actions =======
+    // -- Sự kiện bấm nút tìm kiếm hoá đơn --
     private void onSearch(ActionEvent e) { performSearch(); }
 
+    // -- Đặt lại toàn bộ bộ lọc về trạng thái mặc định --
     private void onReset(ActionEvent e) {
         txtMaHD.setText("");
         txtMaNV.setText("");
@@ -181,6 +187,7 @@ public class XuatHoaDonPanel extends JPanel {
         performSearch();
     }
 
+    // -- Thực hiện truy vấn hoá đơn theo điều kiện lọc và cập nhật bảng --
     private void performSearch() {
         try {
             Timestamp from = null, to = null;
@@ -217,6 +224,7 @@ public class XuatHoaDonPanel extends JPanel {
     }
 
     // ======= UI Helpers (giống panel chuyến đi) =======
+    // -- Tạo control chọn ngày với định dạng chuẩn dd/MM/yyyy --
     private static JDateChooser makeDateChooser() {
         JDateChooser dc = new JDateChooser();
         dc.setDateFormatString("dd/MM/yyyy");
@@ -224,6 +232,7 @@ public class XuatHoaDonPanel extends JPanel {
         dc.setFocusable(false);
         return dc;
     }
+    // -- Sinh spinner chọn giờ/phút kèm định dạng HH:mm --
     private static JSpinner makeTimeSpinner() {
         SpinnerDateModel model = new SpinnerDateModel(new Date(), null, null, Calendar.MINUTE);
         JSpinner sp = new JSpinner(model);
@@ -232,11 +241,13 @@ public class XuatHoaDonPanel extends JPanel {
         sp.setEditor(editor);
         return sp;
     }
+    // -- Bật/tắt cặp control ngày/giờ đồng thời --
     private static void setDateTimeEnabled(JDateChooser dc, JSpinner time, boolean enabled) {
         dc.setEnabled(enabled);
         time.setEnabled(enabled);
     }
 
+    // -- Thiết lập giao diện cho các thành phần nhập liệu --
     private void styleInputs() {
         styleField(txtMaHD);
         styleField(txtMaNV);
@@ -252,6 +263,7 @@ public class XuatHoaDonPanel extends JPanel {
         styleButtonThird(btnExport);
         
     }
+    // -- Định dạng bảng kết quả để dễ đọc --
     private void styleTable() {
         table.setRowHeight(28);
         table.setAutoCreateRowSorter(true);
@@ -277,12 +289,14 @@ public class XuatHoaDonPanel extends JPanel {
         }
     }
 
+    // -- Hàm tiện ích đặt một cặp nhãn + field vào lưới bộ lọc --
     private static void addFilter(JPanel panel, GridBagConstraints gbc, int row, int col, JComponent label, JComponent field) {
         gbc.gridx = col * 2; gbc.gridy = row; gbc.weightx = 0;
         panel.add(label, gbc);
         gbc.gridx = col * 2 + 1; gbc.weightx = 1;
         panel.add(field, gbc);
     }
+    // -- Thêm nhóm bộ lọc ngày + giờ vào panel --
     private static void addDateTimeFilter(JPanel panel, GridBagConstraints gbc, int row, int col,
                                           JCheckBox checkbox, JDateChooser dateChooser, JSpinner timeSpinner) {
         gbc.gridx = col * 2; gbc.gridy = row; gbc.weightx = 0;
@@ -297,7 +311,9 @@ public class XuatHoaDonPanel extends JPanel {
         panel.add(p, gbc);
     }
 
+    // -- Định dạng cho các ô text field --
     private static void styleField(JTextField field) { styleInputComponent(field); }
+    // -- Trang trí cho control chọn ngày đồng bộ với layout --
     private static void styleDateChooser(JDateChooser chooser) {
         Component ui = chooser.getDateEditor().getUiComponent();
         JComponent editor = (ui instanceof JComponent) ? (JComponent) ui : null;
@@ -305,27 +321,33 @@ public class XuatHoaDonPanel extends JPanel {
         chooser.setBorder(BorderFactory.createEmptyBorder());
         chooser.setBackground(Color.WHITE);
     }
+    // -- Trang trí cho spinner chọn giờ --
     private static void styleSpinner(JSpinner spinner) {
         JComponent editor = (spinner.getEditor() instanceof JComponent) ? (JComponent) spinner.getEditor() : null;
         if (editor != null) styleInputComponent(editor);
         spinner.setBorder(BorderFactory.createEmptyBorder());
         spinner.setBackground(Color.WHITE);
     }
+    // -- Tuỳ chỉnh checkbox bật/tắt bộ lọc ngày --
     private static void styleCheckbox(JCheckBox checkBox) {
         checkBox.setOpaque(false);
         checkBox.setForeground(new Color(45, 70, 120));
         checkBox.setFont(checkBox.getFont().deriveFont(Font.BOLD));
     }
+    // -- Nút hành động chính (Tìm hoá đơn) --
     private static void styleButtonPrimary(JButton button) {
         styleButton(button, ACCENT_COLOR, ACCENT_DARKER, Color.WHITE);
         button.setFont(button.getFont().deriveFont(Font.BOLD, 16f));
     }
+    // -- Nút làm mới bộ lọc --
     private static void styleButtonSecondary(JButton button) {
         styleButton(button, new Color(226, 232, 247), new Color(201, 210, 233), new Color(45, 70, 120));
     }
+    // -- Nút xuất hoá đơn ra PDF --
     private static void styleButtonThird(JButton button) {
         styleButton(button, new Color(226, 232, 247), new Color(201, 210, 233), new Color(45, 70, 120));
     }
+    // -- Hàm chung thiết lập hiệu ứng hover/pressed cho các nút --
     private static void styleButton(JButton button, Color background, Color hover, Color foreground) {
         button.setForeground(foreground);
         button.setBorder(new EmptyBorder(10, 24, 10, 24));
@@ -343,6 +365,7 @@ public class XuatHoaDonPanel extends JPanel {
             else                     button.setBackground(background);
         });
     }
+    // -- Áp dụng border và màu sắc cho các control nhập liệu --
     private static void styleInputComponent(JComponent component) {
         component.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(196, 210, 237), 1, true),
@@ -352,6 +375,7 @@ public class XuatHoaDonPanel extends JPanel {
         component.setForeground(new Color(35, 48, 74));
     }
 
+    // -- Panel bo góc sử dụng làm nền cho các khu vực chức năng --
     private static class CardPanel extends JPanel {
         CardPanel(LayoutManager layout) { super(layout); setOpaque(false); }
         @Override protected void paintComponent(Graphics g) {
@@ -367,6 +391,7 @@ public class XuatHoaDonPanel extends JPanel {
     }
 
     // ======= Data helpers =======
+    // -- Kết hợp ngày và giờ thành Timestamp phục vụ truy vấn --
     private static Timestamp toTimestamp(Date dateOnly, Date timeOnly) {
         Calendar d = Calendar.getInstance(); d.setTime(dateOnly);
         Calendar t = Calendar.getInstance(); t.setTime(timeOnly);
@@ -376,6 +401,7 @@ public class XuatHoaDonPanel extends JPanel {
         out.set(Calendar.MILLISECOND, 0);
         return new Timestamp(out.getTimeInMillis());
     }
+    // -- Định dạng Timestamp thành chuỗi dd/MM/yyyy HH:mm --
     private static String formatDateTime(java.sql.Timestamp ts) {
         if (ts == null) return "";
         Calendar c = Calendar.getInstance(); c.setTimeInMillis(ts.getTime());
@@ -383,8 +409,10 @@ public class XuatHoaDonPanel extends JPanel {
                 c.get(Calendar.DAY_OF_MONTH), c.get(Calendar.MONTH)+1, c.get(Calendar.YEAR),
                 c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE));
     }
+    // -- Thay thế giá trị rỗng bằng dấu '-' để bảng dễ đọc --
     private static String nullToDash(String s){ return (s == null || s.isBlank()) ? "-" : s; }
     
+    // -- Định dạng thuế VAT để hiển thị rõ ràng trên bảng --
     private static String formatVat(BigDecimal vat) {
         if (vat == null) {
             return "-";
@@ -403,6 +431,8 @@ public class XuatHoaDonPanel extends JPanel {
         return value.toPlainString() + "%";
     }
 
+    // -- Xuất hoá đơn đã chọn ra file PDF và mở tệp nếu có thể --
+    
     private void onExportInvoice() {
         int viewRow = table.getSelectedRow();
         if (viewRow < 0) {

@@ -47,7 +47,8 @@ public class TicketPdfDao {
             "JOIN LoaiVe lv      ON v.maLoaiVe = lv.maLoaiVe " +
             "LEFT JOIN LoaiGhe lg ON g.maLoaiGhe = lg.maLoaiGhe " +
             "WHERE v.maVe = ?";
-
+    
+    // -- Truy vấn toàn bộ thông tin của một vé để xuất file PDF --
     public Optional<TicketPdfInfo> findByMaVe(String maVe) throws SQLException {
         try (Connection cn = ConnectDB.getConnection();
              PreparedStatement ps = cn.prepareStatement(SQL)) {
@@ -60,7 +61,7 @@ public class TicketPdfDao {
         }
         return Optional.empty();
     }
-
+    // -- Ánh xạ dữ liệu từ ResultSet sang đối tượng TicketPdfInfo --
     private TicketPdfInfo map(ResultSet rs) throws SQLException {
         String maVe = rs.getString("maVe");
         String gaDi = rs.getString("tenGaDi");

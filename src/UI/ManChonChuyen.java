@@ -1,5 +1,6 @@
 package ui;
 
+// ================== CHỨC NĂNG BÁN VÉ · MÀN CHỌN CHUYẾN ==================
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;

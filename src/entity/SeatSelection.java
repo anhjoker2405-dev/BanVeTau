@@ -1,7 +1,7 @@
 package entity;
 
 import java.util.Objects;
-
+// -- Mô tả một ghế được chọn trên màn hình bán vé, bao gồm thông tin toa/khoang --
 public class SeatSelection {
     private final int soToa;
     private final String maToa;

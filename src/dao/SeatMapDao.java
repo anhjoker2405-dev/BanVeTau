@@ -31,7 +31,7 @@ public class SeatMapDao {
         "JOIN Ghe g       ON g.maKhoangTau = kt.maKhoangTau " +
         "WHERE ct.maChuyenTau = ? " +
         "ORDER BY tt.soToa, TRY_CAST(kt.tenKhoangTau AS INT), TRY_CAST(g.soGhe AS INT), g.soGhe";
-
+    // -- Lấy sơ đồ toa/khoang/ghế của chuyến tàu phục vụ màn hình chọn ghế --
     public List<ToaTau> loadSeatMap(String maChuyenTau) throws SQLException {
         Map<String, ToaTau> toaMap = new LinkedHashMap<>();
         Map<String, KhoangTau> khoangMap = new LinkedHashMap<>();

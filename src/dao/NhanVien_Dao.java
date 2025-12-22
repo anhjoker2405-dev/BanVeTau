@@ -10,7 +10,7 @@ import java.util.List;
 
 public class NhanVien_Dao {
 
-    /** Tìm NV theo username, chỉ nhận tài khoản trạng thái KICH_HOAT. */
+    /** Tìm nhân viên theo username, chỉ lấy tài khoản đang kích hoạt để phục vụ đăng nhập. */
     public NhanVien findByUsername(String username) {
         String sql = """
             SELECT
@@ -61,6 +61,7 @@ public class NhanVien_Dao {
      * Danh sách nhân viên hiển thị trên màn quản lý:
      * gồm NV chưa có tài khoản và tài khoản trạng thái KICH_HOAT.
      */
+    // -- Lấy danh sách nhân viên hiển thị trên màn quản lý nhân viên --
     public List<NhanVienThongTin> findAll() throws SQLException {
         List<NhanVienThongTin> list = new ArrayList<>();
         String sql = """
@@ -109,6 +110,7 @@ public class NhanVien_Dao {
         return list;
     }
 
+    // -- Lấy danh sách loại nhân viên phục vụ combobox phân quyền --
     public List<LoaiNhanVien> findAllLoaiNhanVien() throws SQLException {
         List<LoaiNhanVien> list = new ArrayList<>();
         String sql = "SELECT maLoaiNV, moTa FROM LoaiNhanVien ORDER BY moTa";
@@ -124,6 +126,7 @@ public class NhanVien_Dao {
         return list;
     }
 
+    // -- Kiểm tra nhân viên có tồn tại bằng mã --
     public boolean existsById(String maNV) throws SQLException {
         String sql = "SELECT 1 FROM NhanVien WHERE maNV = ?";
         try (Connection con = ConnectDB.getConnection();
@@ -134,13 +137,15 @@ public class NhanVien_Dao {
             }
         }
     }
-
+    
+    // -- Sinh mã nhân viên tiếp theo ở định dạng NVxxx --
     public String generateNextId() throws SQLException {
         try (Connection con = ConnectDB.getConnection()) {
             return nextId(con);
         }
     }
-
+    
+    // -- Sinh mã nhân viên mới bằng kết nối có sẵn (dùng trong transaction) --
     public String nextId(Connection con) throws SQLException {
         String sql = "SELECT MAX(maNV) FROM NhanVien WHERE maNV LIKE 'NV%'";
         try (Statement st = con.createStatement();
@@ -158,8 +163,10 @@ public class NhanVien_Dao {
             }
         }
         return "NV001";
+//      return "NV" + String.format("%04d", n + 1);
     }
-
+    
+    // -- Thêm mới nhân viên vào cơ sở dữ liệu --
     public int insert(NhanVienThongTin nv) throws SQLException {
         String sql = """
             INSERT INTO NhanVien(maNV, tenNV, ngaySinh, soDienThoai, email, cccd, maLoaiNV, ngayBatDauLamViec)
@@ -190,7 +197,8 @@ public class NhanVien_Dao {
             return ps.executeUpdate();
         }
     }
-
+    
+    // -- Cập nhật thông tin nhân viên hiện hữu --
     public int update(NhanVienThongTin nv) throws SQLException {
         String sql = """
             UPDATE NhanVien
@@ -222,8 +230,10 @@ public class NhanVien_Dao {
             return ps.executeUpdate();
         }
     }
+    
 
     /** Đưa tài khoản NV về trạng thái VO_HIEU_HOA (nếu đang active). */
+    // -- Vô hiệu hóa tài khoản nhân viên (ẩn khỏi hệ thống) --
     public int deactivateById(String maNV) throws SQLException {
         String sql = """
             UPDATE TaiKhoan
@@ -237,7 +247,8 @@ public class NhanVien_Dao {
             return ps.executeUpdate();
         }
     }
-
+    
+    // -- Chuyển đổi java.sql.Date sang LocalDate --
     private LocalDate toLocalDate(Date date) {
         return date == null ? null : date.toLocalDate();
     }
@@ -245,6 +256,7 @@ public class NhanVien_Dao {
     // =================== BỔ SUNG DÙNG CHO BÁN VÉ ===================
 
     /** Lấy maNV đầu tiên hợp lệ (chưa có TK hoặc TK KICH_HOAT). */
+    // -- Lấy mã nhân viên đầu tiên còn hoạt động (dùng fallback cho bán vé) --
     public String findFirstActiveMaNV() throws SQLException {
         String sql = """
             SELECT TOP 1 nv.maNV
@@ -267,6 +279,7 @@ public class NhanVien_Dao {
      * - Nếu có username -> tìm NV đang KICH_HOAT.
      * - Nếu không thấy -> fallback maNV đầu tiên hợp lệ.
      */
+    // -- Alias cho existsById để giữ API cũ --
     public String resolveMaNVForPayment(String username) throws SQLException {
         if (username != null && !username.isBlank()) {
             NhanVien nv = findByUsername(username);
@@ -274,47 +287,96 @@ public class NhanVien_Dao {
         }
         return findFirstActiveMaNV();
     }
-    
+    // -- Alias cho existsById để giữ API cũ --
     public boolean exists(String maNV) throws SQLException {
         return existsById(maNV);        // đã có sẵn trong DAO
     }
-
+    // -- Lấy một mã nhân viên hợp lệ bất kỳ --
     public String getAnyActiveMaNV() throws SQLException {
         // nếu bạn đã có findFirstActiveMaNV() thì gọi lại
         return findFirstActiveMaNV();
     }
     // =================== TÌM KIẾM NHÂN VIÊN ===================
-public List<NhanVienThongTin> search(String maNV, String tenNV, String sdt, String email, String cccd, String loaiNV) throws SQLException {
-    List<NhanVienThongTin> list = new ArrayList<>();
-    String sql = """
-        SELECT nv.maNV, nv.tenNV, nv.soDienThoai, nv.email, nv.cccd, nv.maLoaiNV, lnv.moTa AS loaiNV,
-               nv.ngaySinh, nv.ngayBatDauLamViec
-        FROM NhanVien nv
-        LEFT JOIN LoaiNhanVien lnv ON lnv.maLoaiNV = nv.maLoaiNV
-        WHERE 1=1
-        """;
+    // -- Tìm kiếm nhân viên theo nhiều tiêu chí cho màn quản lý --
+    public List<NhanVienThongTin> search(String maNV, String tenNV, String sdt, String email, String cccd, String loaiNV) throws SQLException {
+        List<NhanVienThongTin> list = new ArrayList<>();
+        StringBuilder sql = new StringBuilder(
+            "SELECT nv.maNV, nv.tenNV, nv.soDienThoai, nv.email, nv.cccd, nv.maLoaiNV, lnv.moTa AS loaiNV, " +
+            "nv.ngaySinh, nv.ngayBatDauLamViec " +
+            "FROM NhanVien nv " +
+            "LEFT JOIN LoaiNhanVien lnv ON lnv.maLoaiNV = nv.maLoaiNV " +
+            "WHERE 1=1"
+        );
+        List<Object> params = new ArrayList<>();
 
-    if (!maNV.isBlank()) sql += " AND nv.maNV LIKE ?";
-    if (!tenNV.isBlank()) sql += " AND nv.tenNV LIKE ?";
-    if (!sdt.isBlank()) sql += " AND nv.soDienThoai LIKE ?";
-    if (!email.isBlank()) sql += " AND nv.email LIKE ?";
-    if (!cccd.isBlank()) sql += " AND nv.cccd LIKE ?";
-    if (!loaiNV.isBlank()) sql += " AND (lnv.moTa LIKE ? OR nv.maLoaiNV LIKE ?)";
-
-    try (Connection con = ConnectDB.getConnection();
-         PreparedStatement ps = con.prepareStatement(sql)) {
-        int i = 1;
-        if (!maNV.isBlank()) ps.setString(i++, "%" + maNV + "%");
-        if (!tenNV.isBlank()) ps.setString(i++, "%" + tenNV + "%");
-        if (!sdt.isBlank()) ps.setString(i++, "%" + sdt + "%");
-        if (!email.isBlank()) ps.setString(i++, "%" + email + "%");
-        if (!cccd.isBlank()) ps.setString(i++, "%" + cccd + "%");
-        if (!loaiNV.isBlank()) {
-            ps.setString(i++, "%" + loaiNV + "%");
-            ps.setString(i++, "%" + loaiNV + "%");
+        if (maNV != null && !maNV.isBlank()) {
+            sql.append(" AND nv.maNV LIKE ?");
+            params.add("%" + maNV + "%");
+        }
+        if (tenNV != null && !tenNV.isBlank()) {
+            sql.append(" AND nv.tenNV LIKE ?");
+            params.add("%" + tenNV + "%");
+        }
+        if (sdt != null && !sdt.isBlank()) {
+            sql.append(" AND nv.soDienThoai LIKE ?");
+            params.add("%" + sdt + "%");
+        }
+        if (email != null && !email.isBlank()) {
+            sql.append(" AND nv.email LIKE ?");
+            params.add("%" + email + "%");
+        }
+        if (cccd != null && !cccd.isBlank()) {
+            sql.append(" AND nv.cccd LIKE ?");
+            params.add("%" + cccd + "%");
+        }
+        if (loaiNV != null && !loaiNV.isBlank()) {
+            sql.append(" AND (lnv.moTa LIKE ? OR nv.maLoaiNV LIKE ?)");
+            params.add("%" + loaiNV + "%");
+            params.add("%" + loaiNV + "%");
         }
 
-        try (ResultSet rs = ps.executeQuery()) {
+        try (Connection con = ConnectDB.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql.toString())) {
+
+            for (int i = 0; i < params.size(); i++) {
+                ps.setObject(i + 1, params.get(i));
+            }
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(new NhanVienThongTin(
+                            rs.getString("maNV"),
+                            rs.getString("tenNV"),
+                            rs.getDate("ngaySinh") == null ? null : rs.getDate("ngaySinh").toLocalDate(),
+                            rs.getString("soDienThoai"),
+                            rs.getString("email"),
+                            rs.getString("loaiNV"),
+                            rs.getString("maLoaiNV"),
+                            rs.getString("cccd"),
+                            rs.getDate("ngayBatDauLamViec") == null ? null : rs.getDate("ngayBatDauLamViec").toLocalDate()
+                    ));
+                }
+            }
+        }
+        return list;
+    }
+
+    // -- Danh sách nhân viên chưa có tài khoản để hỗ trợ tạo tài khoản mới --
+    public List<NhanVienThongTin> findNhanVienChuaCoTaiKhoan() throws SQLException {
+        List<NhanVienThongTin> list = new ArrayList<>();
+        String sql = """
+            SELECT nv.maNV, nv.tenNV, nv.ngaySinh, nv.soDienThoai, nv.email,
+                   nv.cccd, nv.ngayBatDauLamViec, nv.maLoaiNV,
+                   COALESCE(lnv.moTa, nv.maLoaiNV) AS loaiNV
+            FROM NhanVien nv
+            LEFT JOIN TaiKhoan tk ON tk.maNV = nv.maNV
+            LEFT JOIN LoaiNhanVien lnv ON lnv.maLoaiNV = nv.maLoaiNV
+            WHERE tk.maNV IS NULL
+            ORDER BY nv.tenNV
+        """;
+        try (Connection con = ConnectDB.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 list.add(new NhanVienThongTin(
                         rs.getString("maNV"),
@@ -329,42 +391,6 @@ public List<NhanVienThongTin> search(String maNV, String tenNV, String sdt, Stri
                 ));
             }
         }
+        return list;
     }
-    return list;
-}
-    
-	public List<NhanVienThongTin> findNhanVienChuaCoTaiKhoan() throws SQLException {
-    List<NhanVienThongTin> list = new ArrayList<>();
-    String sql = """
-        SELECT nv.maNV, nv.tenNV, nv.ngaySinh, nv.soDienThoai, nv.email,
-               nv.cccd, nv.ngayBatDauLamViec, nv.maLoaiNV,
-               COALESCE(lnv.moTa, nv.maLoaiNV) AS loaiNV
-        FROM NhanVien nv
-        LEFT JOIN TaiKhoan tk ON tk.maNV = nv.maNV
-        LEFT JOIN LoaiNhanVien lnv ON lnv.maLoaiNV = nv.maLoaiNV
-        WHERE tk.maNV IS NULL
-        ORDER BY nv.tenNV
-    """;
-    try (Connection con = ConnectDB.getConnection();
-         PreparedStatement ps = con.prepareStatement(sql);
-         ResultSet rs = ps.executeQuery()) {
-        while (rs.next()) {
-            list.add(new NhanVienThongTin(
-                rs.getString("maNV"),
-                rs.getString("tenNV"),
-                rs.getDate("ngaySinh")==null?null:rs.getDate("ngaySinh").toLocalDate(),
-                rs.getString("soDienThoai"),
-                rs.getString("email"),
-                rs.getString("loaiNV"),
-                rs.getString("maLoaiNV"),
-                rs.getString("cccd"),
-                rs.getDate("ngayBatDauLamViec")==null?null:rs.getDate("ngayBatDauLamViec").toLocalDate()
-            ));
-        }
-    }
-    return list;
-	}
-
-
-
 }

@@ -12,7 +12,6 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.sql.SQLException;
 import java.util.List;
-import javax.swing.border.Border;
 
 public class TimKiemHanhKhachPanel extends JPanel {
     private final HanhKhach_Dao dao = new HanhKhach_Dao();
@@ -26,7 +25,7 @@ public class TimKiemHanhKhachPanel extends JPanel {
     private final JButton btnLamMoi = new JButton("Làm mới");
 
     private final DefaultTableModel tableModel = new DefaultTableModel(
-            new String[]{"Mã HK", "Tên hành khách", "Giới tính", "Số điện thoại", "CCCD"}, 0
+            new String[]{"Mã Hành Khách", "Tên Hành Khách", "Giới Tính", "Số điện thoại", "CCCD"}, 0
     ){
         @Override public boolean isCellEditable(int r, int c){ return false; }
     };
@@ -81,9 +80,9 @@ public class TimKiemHanhKhachPanel extends JPanel {
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         int row = 0;
-        addFilter(panel, gbc, row++, new JLabel("Mã HK:"), txtMaHK);
-        addFilter(panel, gbc, row++, new JLabel("Tên hành khách:"), txtTenHK);
-        addFilter(panel, gbc, row++, new JLabel("Số điện thoại:"), txtSDT);
+        addFilter(panel, gbc, row++, new JLabel("Mã Hành Khách:"), txtMaHK);
+        addFilter(panel, gbc, row++, new JLabel("Tên Hành Khách:"), txtTenHK);
+        addFilter(panel, gbc, row++, new JLabel("Số Điện Thoại:"), txtSDT);
         addFilter(panel, gbc, row++, new JLabel("CCCD:"), txtCCCD);
 
         JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));

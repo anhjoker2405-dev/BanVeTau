@@ -1,5 +1,5 @@
 package ui;
-
+// ================== CHỨC NĂNG BÁN VÉ · MÀN THANH TOÁN ==================
 import dao.KhuyenMai_Dao;
 import entity.KhuyenMai;
 import entity.TicketSelection;
@@ -42,6 +42,7 @@ public class ManThanhToan extends JPanel {
     private final JLabel vatValueLabel = new JLabel("10");
     private final JLabel totalAmountLabel = new JLabel("0 ₫");
     private static final BigDecimal VAT_RATE = new BigDecimal("0.10");
+    private static final BigDecimal ONE_HUNDRED = BigDecimal.valueOf(100);
 
     private final JButton btnBack = new JButton("Quay lại");
     private final JButton btnConfirm = new JButton("Xác nhận");
@@ -329,10 +330,8 @@ public class ManThanhToan extends JPanel {
             public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
                 Component c = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
                 if (value instanceof KhuyenMai km) {
-                    BigDecimal percent = km.getGiamGia() != null
-                            ? km.getGiamGia().multiply(new BigDecimal(100)).setScale(0, RoundingMode.HALF_UP)
-                            : BigDecimal.ZERO;
-                    setText(km.getTenKhuyenMai() + " (" + percent.intValue() + "%)");
+                    String percentText = formatPromotionPercent(km.getGiamGia());
+                    setText(km.getTenKhuyenMai() + " (" + percentText + "%)");
                 } else if (value == null) {
                     setText("Không áp dụng");
                 }
@@ -537,7 +536,7 @@ public class ManThanhToan extends JPanel {
 
         vatRate = VAT_RATE;
         KhuyenMai km = (KhuyenMai) promotionCombo.getSelectedItem();
-        BigDecimal discountRate = (km != null && km.getGiamGia() != null) ? km.getGiamGia() : BigDecimal.ZERO;
+        BigDecimal discountRate = km != null ? toFraction(km.getGiamGia()) : BigDecimal.ZERO;
         selectedPromotionId = km != null ? km.getMaKhuyenMai() : null;
 
         BigDecimal amountWithVat = subtotal.multiply(BigDecimal.ONE.add(vatRate));
@@ -553,6 +552,37 @@ public class ManThanhToan extends JPanel {
         unitPrice = rounded.divide(new BigDecimal(quantity), 0, RoundingMode.HALF_UP);
 
         totalAmountLabel.setText(formatCurrency(rounded));
+    }
+    
+    private static String formatPromotionPercent(BigDecimal rawDiscount) {
+        BigDecimal percent = toPercent(rawDiscount);
+        percent = percent.stripTrailingZeros();
+        if (percent.scale() < 0) {
+            percent = percent.setScale(0);
+        }
+        return percent.toPlainString();
+    }
+
+    private static BigDecimal toPercent(BigDecimal rawDiscount) {
+        if (rawDiscount == null) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal value = rawDiscount;
+        if (value.abs().compareTo(BigDecimal.ONE) < 0) {
+            value = value.multiply(ONE_HUNDRED);
+        }
+        return value;
+    }
+
+    private static BigDecimal toFraction(BigDecimal rawDiscount) {
+        if (rawDiscount == null) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal value = rawDiscount;
+        if (value.abs().compareTo(BigDecimal.ONE) > 0) {
+            value = value.movePointLeft(2);
+        }
+        return value;
     }
     
     private void updateExchangePanel() {

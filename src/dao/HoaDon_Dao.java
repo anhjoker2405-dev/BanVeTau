@@ -10,7 +10,7 @@ import java.util.List;
 
 public class HoaDon_Dao {
 
-    /** Tạo hóa đơn mới, trả về maHoaDon đã tạo */
+    /** Tạo hóa đơn mới cho nghiệp vụ bán vé và trả về mã vừa sinh. */
     public String createHoaDon(Connection cn, String maNV, String maHK, BigDecimal vat, String maKM) throws SQLException {
         String maHD = "HD" + System.currentTimeMillis();
         String sql = "INSERT INTO HoaDon(maHoaDon, ngayLapHoaDon, VAT, maNV, maHK, maKhuyenMai) VALUES (?,?,?,?,?,?)";
@@ -27,8 +27,12 @@ public class HoaDon_Dao {
     }
 
     /**
-     * Tìm kiếm hoá đơn theo mã, ngày lập từ/đến, theo mã NV hoặc mã HK (tuỳ chọn).
+     * Tìm kiếm hoá đơn theo mã, ngày lập từ/đến, theo mã NV hoặc mã HK
      * Các tham số null/chuỗi rỗng sẽ được bỏ qua trong WHERE.
+     */
+    /**
+     * Tìm kiếm hoá đơn phục vụ màn hình xuất hóa đơn.
+     * Các tham số null/chuỗi rỗng sẽ được bỏ qua khỏi điều kiện.
      */
     public List<HoaDonView> search(String maHoaDon, Timestamp from, Timestamp to, String maNV, String maHK) throws SQLException {
         StringBuilder sql = new StringBuilder();
@@ -65,7 +69,7 @@ public class HoaDon_Dao {
             where.add("(hd.maNV = ? OR nv.tenNV LIKE ?)");
             params.add(maNV.trim());                    types.add(Types.NVARCHAR);
             params.add("%" + maNV.trim() + "%");        types.add(Types.NVARCHAR);
-            // Nếu muốn không phân biệt dấu trên SQL Server, có thể dùng:
+            // Nếu muốn không phân biệt dấu trên SQL Server
             // where.add("(hd.maNV = ? OR nv.tenNV COLLATE Vietnamese_CI_AI LIKE ?)");
         }
 

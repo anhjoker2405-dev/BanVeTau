@@ -1,5 +1,5 @@
 package ui;
-
+// ================== CHỨC NĂNG QUẢN LÝ CHUYẾN TÀU ==================
 import com.toedter.calendar.JDateChooser;
 import dao.ChuyenTauDao;
 import entity.ChuyenTauThongTin;
@@ -13,6 +13,7 @@ import javax.swing.plaf.basic.BasicComboBoxUI;
 import javax.swing.table.*;
 import java.awt.*;
 import java.awt.Rectangle;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.sql.SQLException;
@@ -55,7 +56,8 @@ public class QuanLyChuyenTau extends JPanel {
     }, 0) { @Override public boolean isCellEditable(int r,int c){ return false; } };
 
     private final JTable table = new JTable(model);
-
+    private List<ChuyenTauThongTin> currentDanhSach = new ArrayList<>();
+    // -- Khởi tạo màn quản lý chuyến tàu với form nhập và bảng danh sách --
     public QuanLyChuyenTau() {
         // Nền gradient + layout
         setOpaque(false);
@@ -93,7 +95,7 @@ public class QuanLyChuyenTau extends JPanel {
 
         // KHÔNG gọi mockData() => bảng trống
     }
-
+    // -- Xây dựng thẻ chứa thông tin nhập chuyến tàu và các nút thao tác --
     private JPanel buildFilterCard() {
         CardPanel card = new CardPanel(new GridBagLayout());
         card.setBorder(new EmptyBorder(16, 20, 12, 20));
@@ -135,6 +137,7 @@ public class QuanLyChuyenTau extends JPanel {
     }
 
     /** Viewport bảng: bo góc + padding + STYLE như TimKiemChuyenDiPanel */
+    // -- Tạo bảng hiển thị danh sách chuyến tàu kèm thông tin toa/khoang --
     private JPanel buildTableCard() {
         // tỉ lệ cột ban đầu (đã giảm còn 10 cột)
         int[] widths = {120,110,120,140,140,150,70,80,110,120};
@@ -170,7 +173,9 @@ public class QuanLyChuyenTau extends JPanel {
     }
 
     // ===== helpers =====
-        private JComponent makeFiller() {
+    
+    // -- Panel đệm dùng để cân chỉnh layout GridBag --
+    private JComponent makeFiller() {
         JPanel p = new JPanel();
         p.setOpaque(false);
         // Cho phép giãn ra nhưng không thấy gì
@@ -178,10 +183,12 @@ public class QuanLyChuyenTau extends JPanel {
         p.setPreferredSize(new Dimension(0, 0));
         return p;
     }
+    // -- Thêm một hàng nhãn + field vào card nhập liệu --
     private void addRow(JPanel p, GridBagConstraints gbc, int row, JComponent label, JComponent field, int span) {
         gbc.gridy = row; gbc.gridx = 0; gbc.gridwidth = 1; gbc.weightx = 0; p.add(label, gbc);
         gbc.gridx = 1; gbc.gridwidth = span; gbc.weightx = 1; p.add(field, gbc);
     }
+    // -- Thêm cặp control (2 cột) vào layout GridBag --
     private void addPair(JPanel p, GridBagConstraints gbc, int row, JComponent l1, JComponent c1, JComponent l2, JComponent c2) {
         gbc.gridy = row;
         gbc.gridx = 0; gbc.gridwidth = 1; gbc.weightx = 0; p.add(l1, gbc);
@@ -191,6 +198,8 @@ public class QuanLyChuyenTau extends JPanel {
     }
 
     // ===== Styles =====
+    
+    // -- Định dạng các ô nhập và combobox để thống nhất giao diện --
     private void styleInputs() {
         int h = 28;
         Font inputFont = new Font("Segoe UI", Font.PLAIN, 13);
@@ -208,14 +217,17 @@ public class QuanLyChuyenTau extends JPanel {
         dtKH.applyInputStyle(h);
         dtDT.applyInputStyle(h);
     }
-
+    
+    // -- Định dạng nhóm nút thao tác chính trên màn hình --
     private void styleButtons() {
         for (JButton b : new JButton[]{btnThem, btnXoa, btnCapNhat}) {
-            b.setPreferredSize(new Dimension(160, 32)); // PrimaryButton tự vẽ nền xanh
+            b.setPreferredSize(new Dimension(160, 32)); // PrimaryButton
         }
     }
 
     // ===== Utility: tắt focus border của JComboBox =====
+    
+    // -- Loại bỏ viền focus mặc định của JComboBox để giao diện tinh gọn --
     private static void stripComboFocus(JComboBox<?> cb) {
         cb.setUI(new BasicComboBoxUI() {
             @Override
@@ -232,12 +244,24 @@ public class QuanLyChuyenTau extends JPanel {
         });
     }
 //------------------------------------------------------------------------   
-        private void initActions() {
+    // -- Gắn hành động cho các nút thêm/xoá/cập nhật chuyến tàu --
+    private void initActions() {
         btnThem.addActionListener(e -> handleAdd());
         btnXoa.addActionListener(e -> handleDelete());
         btnCapNhat.addActionListener(e -> handleUpdate());
+        
+        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        table.getSelectionModel().addListSelectionListener(e -> {
+            if (e.getValueIsAdjusting()) return;
+            int viewRow = table.getSelectedRow();
+            if (viewRow < 0) return;
+            int modelRow = table.convertRowIndexToModel(viewRow);
+            if (modelRow < 0 || modelRow >= currentDanhSach.size()) return;
+            populateForm(currentDanhSach.get(modelRow));
+        });
     }
-
+    
+    // -- Tải dữ liệu ga và tàu từ cơ sở dữ liệu cho các combobox --
     private void loadComboData() {
         try {
             DefaultComboBoxModel<Ga> gaDiModel = new DefaultComboBoxModel<>();
@@ -261,7 +285,8 @@ public class QuanLyChuyenTau extends JPanel {
                     "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
-
+    
+    // -- Sinh mã chuyến tàu tiếp theo để hỗ trợ thêm mới --
     private void prepareNextId() {
         try {
             String nextId = chuyenTauDao.generateMaChuyenTau();
@@ -272,9 +297,11 @@ public class QuanLyChuyenTau extends JPanel {
         }
     }
     
-        private void loadTableData() {
+    // -- Nạp lại danh sách chuyến tàu từ cơ sở dữ liệu --
+    private void loadTableData() {
         try {
             List<ChuyenTauThongTin> danhSach = chuyenTauDao.fetchDanhSachChuyenTau();
+            currentDanhSach = new ArrayList<>(danhSach);
             model.setRowCount(0);
             for (ChuyenTauThongTin info : danhSach) {
                 model.addRow(new Object[]{
@@ -290,6 +317,7 @@ public class QuanLyChuyenTau extends JPanel {
                         info.getSoGheTrong()
                 });
             }
+            table.clearSelection();
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Không thể tải danh sách chuyến tàu: " + ex.getMessage(),
                     "Lỗi", JOptionPane.ERROR_MESSAGE);
@@ -299,7 +327,8 @@ public class QuanLyChuyenTau extends JPanel {
     public void reloadData() {
         SwingUtilities.invokeLater(this::loadTableData);
     }
-
+    
+    // -- Thêm mới chuyến tàu sau khi kiểm tra dữ liệu đầu vào --
     private void handleAdd() {
         try {
             Ga gaDi = (Ga) cboGaDi.getSelectedItem();
@@ -331,7 +360,8 @@ public class QuanLyChuyenTau extends JPanel {
                     "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
-
+    
+    // -- Xoá chuyến tàu dựa trên mã nhập vào --
     private void handleDelete() {
         String ma = txtMa.getText().trim();
         if (ma.isEmpty()) {
@@ -361,7 +391,8 @@ public class QuanLyChuyenTau extends JPanel {
                     "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
-
+    
+    // -- Cập nhật thông tin chuyến tàu đã tồn tại --
     private void handleUpdate() {
         String ma = txtMa.getText().trim();
         if (ma.isEmpty()) {
@@ -398,7 +429,8 @@ public class QuanLyChuyenTau extends JPanel {
                     "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
-
+    
+    // -- Kiểm tra hợp lệ của thời gian khởi hành và dự kiến kết thúc --
     private void validateThoiGian(LocalDateTime khoiHanh, LocalDateTime ketThuc) {
         if (khoiHanh == null) throw new IllegalArgumentException("Vui lòng chọn thời gian khởi hành.");
         if (ketThuc == null) throw new IllegalArgumentException("Vui lòng chọn thời gian dự tính.");
@@ -406,19 +438,23 @@ public class QuanLyChuyenTau extends JPanel {
             throw new IllegalArgumentException("Thời gian kết thúc phải sau thời gian khởi hành.");
         }
     }
-
+    
+    // -- Đặt lại các trường nhập liệu sau khi thao tác xong --
     private void clearForm() {
         cboGaDi.setSelectedIndex(-1);
         cboGaDen.setSelectedIndex(-1);
         cboTau.setSelectedIndex(-1);
         dtKH.setLocalDateTime(null);
         dtDT.setLocalDateTime(null);
+        table.clearSelection();
     }
     
-        private String formatDateTime(LocalDateTime value) {
+    // -- Định dạng LocalDateTime thành chuỗi hiển thị dd/MM/yyyy HH:mm --
+    private String formatDateTime(LocalDateTime value) {
         return value == null ? "" : value.format(DATE_TIME_FMT);
     }
-
+    
+    // -- Chuyển số phút thành chuỗi mô tả giờ/phút --    private String formatDuration(Integer minutes) {
     private String formatDuration(Integer minutes) {
         if (minutes == null) return "";
         if (minutes < 60) {
@@ -431,9 +467,34 @@ public class QuanLyChuyenTau extends JPanel {
         }
         return hours + " giờ " + mins + " phút";
     }
-
+    // -- Tránh hiển thị null bằng chuỗi rỗng --
     private String safe(String value) {
         return value == null ? "" : value;
+    }
+    
+    private void populateForm(ChuyenTauThongTin info) {
+        txtMa.setText(info.getMaChuyenTau());
+        selectComboByDisplay(cboGaDi, info.getGaDi());
+        selectComboByDisplay(cboGaDen, info.getGaDen());
+        selectComboByDisplay(cboTau, info.getTenTau());
+        dtKH.setLocalDateTime(info.getThoiGianKhoiHanh());
+        dtDT.setLocalDateTime(info.getThoiGianDuTinh());
+    }
+
+    private <T> void selectComboByDisplay(JComboBox<T> comboBox, String displayValue) {
+        if (displayValue == null) {
+            comboBox.setSelectedIndex(-1);
+            return;
+        }
+        ComboBoxModel<T> model = comboBox.getModel();
+        for (int i = 0; i < model.getSize(); i++) {
+            T item = model.getElementAt(i);
+            if (item != null && displayValue.equals(String.valueOf(item))) {
+                comboBox.setSelectedIndex(i);
+                return;
+            }
+        }
+        comboBox.setSelectedIndex(-1);
     }
 
 //    private static class ComboItem {

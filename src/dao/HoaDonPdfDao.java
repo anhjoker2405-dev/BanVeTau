@@ -48,7 +48,8 @@ public class HoaDonPdfDao {
             "JOIN Tau tau         ON tt.maTau = tau.maTau " +
             "WHERE ct.maHoaDon = ? " +
             "ORDER BY ct.maVe";
-
+    
+// -- Truy xuất thông tin hoá đơn và các dòng vé phục vụ xuất PDF --
     public Optional<InvoicePdfInfo> findByMaHoaDon(String maHoaDon) throws SQLException {
         if (maHoaDon == null || maHoaDon.isBlank()) {
             return Optional.empty();
@@ -117,7 +118,8 @@ public class HoaDonPdfDao {
             return Optional.of(info);
         }
     }
-
+    
+    // -- Chuyển từng dòng ResultSet thành dữ liệu chi tiết vé cho PDF --
     private InvoicePdfItem mapItem(ResultSet rs, BigDecimal vatRate, BigDecimal promotionRate) throws SQLException {
         String maVe = rs.getString("maVe");
         int soLuong = rs.getInt("soLuongVe");
@@ -155,7 +157,7 @@ public class HoaDonPdfDao {
                 donGiaChuaThue, thanhTienChuaThue, thue, thanhTienCoThue);
     }
     
-
+// -- Tính lại đơn giá chưa thuế dựa trên giá có thuế và khuyến mãi --
     private BigDecimal resolveDonGiaChuaThue(BigDecimal donGiaCoThue,
                                              BigDecimal giaCoSo,
                                              BigDecimal vatRate,
@@ -174,7 +176,8 @@ public class HoaDonPdfDao {
         }
         return base.setScale(0, RoundingMode.HALF_UP);
     }
-
+    
+// -- Chuẩn hoá tỷ lệ phần trăm về dạng 0..1 --
     private BigDecimal normalizeRate(BigDecimal rawRate) {
         BigDecimal rate = rawRate;
         if (rate == null) {
@@ -191,7 +194,8 @@ public class HoaDonPdfDao {
         }
         return rate;
     }
-
+    
+// -- Loại bỏ tỷ lệ khuyến mãi khỏi giá tiền --
     private BigDecimal removePromotion(BigDecimal amount, BigDecimal promotionRate) {
         if (amount == null) {
             return BigDecimal.ZERO;
@@ -206,7 +210,8 @@ public class HoaDonPdfDao {
         }
         return amount.divide(divisor, 6, RoundingMode.HALF_UP);
     }
-
+    
+// -- Quy đổi giá có VAT về giá chưa VAT --
     private BigDecimal removeVat(BigDecimal amount, BigDecimal vatRate) {
         if (amount == null) {
             return BigDecimal.ZERO;
@@ -221,14 +226,16 @@ public class HoaDonPdfDao {
         }
         return amount.divide(divisor, 6, RoundingMode.HALF_UP);
     }
-
+    
+ // -- Đảm bảo giá trị tiền tệ được làm tròn về đơn vị đồng --
     private BigDecimal sanitizeMoney(BigDecimal value) {
         if (value == null) {
             return BigDecimal.ZERO;
         }
         return value.setScale(0, RoundingMode.HALF_UP);
     }
-
+    
+// -- Ghép các thông tin toa, ghế, tuyến thành mô tả dịch vụ --
     private String buildServiceDescription(ResultSet rs) throws SQLException {
         String chuyenTauCode = safe(getStringIfExists(rs, "maChuyenTauDisplay"));
         if (chuyenTauCode.isBlank()) {
@@ -285,10 +292,12 @@ public class HoaDonPdfDao {
 
         return service.toString().trim();
     }
-
+    
+// -- Tránh NullPointerException khi đọc chuỗi từ ResultSet --
     private String safe(String value) {
         return value != null ? value.trim() : "";
     }
+    // -- Đọc cột có thể không tồn tại-
     private String getStringIfExists(ResultSet rs, String columnLabel) throws SQLException {
         try {
             return rs.getString(columnLabel);

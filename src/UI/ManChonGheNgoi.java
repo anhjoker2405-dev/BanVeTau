@@ -1,5 +1,5 @@
 package ui;
-
+// ================== CHỨC NĂNG BÁN VÉ · MÀN CHỌN GHẾ ==================
 import dao.FormValidator;
 import dao.GiaVe_Dao;
 import dao.HanhKhach_Dao;
@@ -777,13 +777,14 @@ public class ManChonGheNgoi extends JPanel {
         ticketListPanel.revalidate();
         ticketListPanel.repaint();
     }
-
+    // -- Cập nhật lại giá vé hiển thị khi có thay đổi loại vé hoặc khuyến mãi --
     private void updateTicketPriceFields() {
         for (TicketForm form : ticketForms.values()) {
             updateTicketPriceForForm(form);
         }
     }
-
+    
+    // -- Tính toán lại giá tiền cụ thể cho một form hành khách --
     private void updateTicketPriceForForm(TicketForm form) {
         if (form == null) {
             return;
@@ -807,6 +808,7 @@ public class ManChonGheNgoi extends JPanel {
             }
         }
     }
+    // -- Áp dụng tỷ lệ giảm giá lên giá gốc để ra giá cuối cùng --    
     private BigDecimal calculateDiscountedFare(BigDecimal baseFare, BigDecimal discountRate) {
         if (baseFare == null) {
             return null;
@@ -815,7 +817,8 @@ public class ManChonGheNgoi extends JPanel {
         BigDecimal multiplier = BigDecimal.ONE.subtract(effectiveRate);
         return baseFare.multiply(multiplier).setScale(0, RoundingMode.HALF_UP);
     }
-
+    
+    // -- Hiển thị phần trăm giảm giá dễ đọc cho người dùng --
     private String formatDiscountText(BigDecimal discountRate) {
         if (discountRate == null || discountRate.compareTo(BigDecimal.ZERO) <= 0) {
             return "Không áp dụng";
@@ -851,11 +854,11 @@ public class ManChonGheNgoi extends JPanel {
         }
         return DISCOUNT_NONE;
     }
-    
+    // -- Lấy giá vé hiện tại của chuyến để chia sẻ cho bước thanh toán --    
     public BigDecimal getFarePerSeat() {
         return currentFare;
     }
-
+    // -- Gom toàn bộ thông tin hành khách theo từng ghế đã chọn --
     public List<PassengerInfo> collectPassengerInfos() {
         List<PassengerInfo> result = new ArrayList<>();
         for (Map.Entry<SeatSelection, TicketForm> entry : ticketForms.entrySet()) {
@@ -893,6 +896,7 @@ public class ManChonGheNgoi extends JPanel {
         return result;
     }
     
+    // -- Kiểm tra dữ liệu nhập trên các form hành khách trước khi sang bước thanh toán --    
     public boolean validatePassengerForms() {
         if (ticketForms.isEmpty()) {
             JOptionPane.showMessageDialog(this,
@@ -948,6 +952,7 @@ public class ManChonGheNgoi extends JPanel {
         return true;
     }
     
+    // -- Sao chép nhanh thông tin nhập chung sang từng form ghế --
     private void fillTicketFormFromCommon(TicketForm form) {
         if (form == null) return;
 
@@ -967,7 +972,8 @@ public class ManChonGheNgoi extends JPanel {
             form.cccdField.setText(commonCccdField.getText().trim());
         }
     }
-
+    
+    // -- Tạo combo box giới tính dùng chung cho các form hành khách --
     private JComboBox<ComboItem> createGenderComboBox() {
         JComboBox<ComboItem> combo = new JComboBox<>();
         for (ComboItem item : genderOptions) {
@@ -976,7 +982,7 @@ public class ManChonGheNgoi extends JPanel {
         combo.setFocusable(false);
         return combo;
     }
-
+    // -- Tạo combo box loại vé dựa trên dữ liệu đã tải --  
     private JComboBox<ComboItem> createTicketTypeComboBox() {
         JComboBox<ComboItem> combo = new JComboBox<>();
         for (ComboItem item : ticketTypeOptions) {
@@ -985,7 +991,7 @@ public class ManChonGheNgoi extends JPanel {
         combo.setFocusable(false);
         return combo;
     }
-
+    // -- Sinh danh sách năm sinh để người dùng chọn nhanh --
     private JComboBox<String> createYearComboBox() {
         JComboBox<String> combo = new JComboBox<>();
         int currentYear = LocalDate.now().getYear();
@@ -1026,7 +1032,7 @@ public class ManChonGheNgoi extends JPanel {
             return currencyFormat.format(amount) + " đ";
         }
     }
-
+    // -- Tải dữ liệu danh mục (giới tính, loại vé) phục vụ bước chọn ghế --
     private void loadReferenceData() {
         genderOptions.clear();
         ticketTypeOptions.clear();
@@ -1059,13 +1065,13 @@ public class ManChonGheNgoi extends JPanel {
             ticketTypeOptions.add(new ComboItem("LV-003", "Vé cho người cao tuổi"));
         }
     }
-
+    // -- Thông báo khi không thể tải dữ liệu danh mục và dùng dữ liệu mặc định --
     private void showReferenceDataWarning(String message, Exception ex) {
         System.err.println(message + " Chi tiết: " + ex.getMessage());
         SwingUtilities.invokeLater(() ->
                 JOptionPane.showMessageDialog(this, message, "Cảnh báo", JOptionPane.WARNING_MESSAGE));
     }
-
+    // -- Ràng buộc việc chọn ghế chỉ trong cùng một khoang để tránh nhầm lẫn --
     private boolean canSelectSeat(SeatSelection seat) {
         if (selectedSeats.isEmpty()) {
             return true;
@@ -1083,7 +1089,8 @@ public class ManChonGheNgoi extends JPanel {
         });
         return false;
     }
-
+    
+    // -- Tải giá vé tương ứng với chuyến tàu hiện hành từ cơ sở dữ liệu --
     private void loadFareForCurrentTrip() {
         currentFare = null;
         if (currentMaChuyenTau == null || currentMaChuyenTau.isBlank()) {
@@ -1107,7 +1114,7 @@ public class ManChonGheNgoi extends JPanel {
         }
         updateTicketPriceFields();
     }
-
+    // -- Thanh nút điều hướng giữa các bước của quy trình bán vé --
     private JComponent bottomButtons() {
         JPanel p = new JPanel(new FlowLayout(FlowLayout.CENTER, 16, 8));
         p.setBackground(Color.WHITE);
@@ -1131,14 +1138,15 @@ public class ManChonGheNgoi extends JPanel {
         p.add(btnNext);
         return p;
     }
-
+    // -- Bật/tắt nút Tiếp Tục dựa trên việc đã chọn ghế hay chưa --
     private void updateNextButtonState() {
         if (btnNext != null) {
             btnNext.setEnabled(!selectedSeats.isEmpty());
         }
     }
     // ===================== Public API =====================
-
+    
+    // -- Cập nhật thông tin tuyến hiển thị phía trên màn hình --
     public void setRoute(String gaDi, String gaDen, LocalDate ngay) {
         if (gaDi == null || gaDen == null) {
             routeLabel.setText("  Tuyến ...");
@@ -1147,7 +1155,8 @@ public class ManChonGheNgoi extends JPanel {
         String dateText = ngay != null ? ngay.format(DateTimeFormatter.ofPattern("dd/MM")) : "";
         routeLabel.setText("  Tuyến " + gaDi + " -> " + gaDen + (dateText.isEmpty() ? "" : ", Ngày " + dateText));
     }
-
+    
+    // -- Lấy sơ đồ ghế cho chuyến tàu và vẽ lại toàn bộ giao diện --
     public boolean loadSeatMap(String maChuyenTau) {
         currentMaChuyenTau = maChuyenTau;
         try {
@@ -1166,15 +1175,15 @@ public class ManChonGheNgoi extends JPanel {
             return false;
         }
     }
-
+    // -- Trả về số lượng toa hiện có để các bước sau kiểm tra ràng buộc -- 
     public int getCarCount() {
         return currentCars != null ? currentCars.size() : 0;
     }
-
+    // -- Cho phép màn hình cha đăng ký lắng nghe sự kiện chọn ghế --
     public void setSeatSelectionListener(SeatSelectionListener listener) {
         this.seatSelectionListener = listener;
     }
-    
+    // -- Đổ thông tin mặc định vào các trường dùng chung khi quay lại bước này --
     public void setCommonPassengerInfo(String hoTen, String soDienThoai, String cccd, String maGioiTinh) {
         if (commonNameField != null) {
             commonNameField.setText(hoTen != null ? hoTen : "");
@@ -1198,11 +1207,11 @@ public class ManChonGheNgoi extends JPanel {
             fillTicketFormFromCommon(form);
         }
     }
-
+// -- Trả về danh sách ghế đã chọn để truyền sang bước thanh toán --
     public List<SeatSelection> getSelectedSeats() {
         return new ArrayList<>(selectedSeats);
     }
-
+// -- Dọn dẹp toàn bộ lựa chọn khi người dùng quay lại từ bước sau --
     public void clearSelection() {
         updatingSelection = true;
         for (Map.Entry<JToggleButton, SeatSelection> entry : seatBinding.entrySet()) {
@@ -1220,13 +1229,13 @@ public class ManChonGheNgoi extends JPanel {
         updateTicketPriceFields();
         updateNextButtonState();
     }
-
+    // -- Liên kết nút Quay Lại với luồng điều hướng bên ngoài --
     public void addBackActionListener(ActionListener listener) {
         if (btnBack != null) {
             btnBack.addActionListener(listener);
         }
     }
-
+    // -- Liên kết nút Tiếp Tục với bước thanh toán tiếp theo --
     public void addNextActionListener(ActionListener listener) {
         if (btnNext != null) {
             btnNext.addActionListener(listener);

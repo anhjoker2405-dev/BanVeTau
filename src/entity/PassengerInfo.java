@@ -1,7 +1,7 @@
 package entity;
 
 import java.math.BigDecimal;
-
+// -- Thông tin hành khách tương ứng với từng ghế để truyền qua bước thanh toán/in vé --
 public class PassengerInfo {
     private final SeatSelection seat;
     private final String hoTen;

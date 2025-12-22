@@ -2,15 +2,21 @@ package ui;
 
 import dao.ChuyenDi_Dao;
 import dao.DoiVe_Dao;
+import dao.HoaDonPdfDao;
 import dao.NhanVien_Dao;
 import dao.ThanhToan_Dao;
+import dao.TicketPdfDao;
 import entity.ChuyenTau;
+import entity.InvoicePdfInfo;
 import entity.PassengerInfo;
 import entity.SeatSelection;
 import entity.TicketExchangeInfo;
+import entity.TicketPdfInfo;
 import entity.TicketSelection;
 import entity.TrainInfo;
 import util.AppSession;
+import util.HDPdfExporter;
+import util.TicketPdfExporter;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -18,6 +24,9 @@ import javax.swing.plaf.basic.BasicButtonUI;
 import java.awt.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.SQLException;
 import java.text.NumberFormat;
 import java.time.Duration;
@@ -31,6 +40,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Luồng đổi vé: tra cứu vé cũ → chọn chuyến/ghế mới → thanh toán phần chênh lệch.
@@ -41,6 +51,7 @@ public class DoiVe extends JPanel {
     private static final String CARD_TRIP = "trip";
     private static final String CARD_SEAT = "seat";
     private static final String CARD_PAY = "pay";
+    private static final String CARD_EXPORT = "export";
 
     private final CardLayout wizard = new CardLayout();
     private final JPanel cards = new JPanel(wizard);
@@ -49,6 +60,7 @@ public class DoiVe extends JPanel {
     private final ChooseTripPage chooseTripPage = new ChooseTripPage();
     private final ManChonGheNgoi seatPage = new ManChonGheNgoi();
     private final ManThanhToan paymentPage = new ManThanhToan();
+    private final ManHinhXuatPDF exportPanel = new ManHinhXuatPDF();
 
     private final List<TicketSelection> selections = new ArrayList<>();
     private final NumberFormat currencyFormat;
@@ -57,6 +69,9 @@ public class DoiVe extends JPanel {
     private ManChonChuyen.Trip selectedTrip;
     private TrainInfo currentTrain;
     private BigDecimal exchangeFeeRate;
+    
+    private java.util.List<String> pendingTicketIds = java.util.Collections.emptyList();
+    private String pendingInvoiceId;
 
     public DoiVe() {
         currencyFormat = NumberFormat.getInstance(new Locale("vi", "VN"));
@@ -73,6 +88,7 @@ public class DoiVe extends JPanel {
         cards.add(chooseTripPage, CARD_TRIP);
         cards.add(seatPage, CARD_SEAT);
         cards.add(paymentPage, CARD_PAY);
+        cards.add(exportPanel, CARD_EXPORT);
         add(cards, BorderLayout.CENTER);
 
         searchSection.getSearchButton().addActionListener(e -> handleSearchTicket());
@@ -85,6 +101,16 @@ public class DoiVe extends JPanel {
         paymentPage.setBackAction(() -> showStep(CARD_SEAT));
         paymentPage.setEditTicketsAction(() -> showStep(CARD_SEAT));
         paymentPage.setConfirmAction(this::thucHienDoiVe);
+        
+        exportPanel.getBtnInVe().addActionListener(e -> handleExportTicket(exportPanel, pendingTicketIds));
+        exportPanel.getBtnInHoaDon().addActionListener(e ->
+                handleExportInvoice(exportPanel, pendingInvoiceId));
+        exportPanel.getBtnBackHome().addActionListener(e -> {
+            resetFlow();
+            pendingTicketIds = java.util.Collections.emptyList();
+            exportPanel.setInfoMessage(" ");
+            pendingInvoiceId = null;
+        });
 
         showStep(CARD_SEARCH);
     }
@@ -317,11 +343,9 @@ public class DoiVe extends JPanel {
                     giaVeMoi,
                     tongThanhToan
             );
-            JOptionPane.showMessageDialog(this,
-                    "Đổi vé thành công!\nMã vé mới: " + result.getMaVeMoi() +
-                            "\nMã hóa đơn: " + result.getMaHoaDon() +
-                            "\nSố tiền đã thanh toán: " + formatCurrency(tongThanhToan));
-            resetFlow();
+            
+            SwingUtilities.invokeLater(() -> showTicketExportScreen(result, tongThanhToan));
+
         } catch (Exception ex) {
             ex.printStackTrace();
             JOptionPane.showMessageDialog(this,
@@ -352,6 +376,137 @@ public class DoiVe extends JPanel {
 
     private String formatCurrency(BigDecimal amount) {
         return currencyFormat.format(amount != null ? amount : BigDecimal.ZERO) + " ₫";
+    }
+
+    private void showTicketExportScreen(ThanhToan_Dao.ExchangeResult result, BigDecimal tongTien) {
+        if (result == null) {
+            JOptionPane.showMessageDialog(this,
+                    "Đổi vé thành công!\nTổng tiền: " + formatVND(tongTien));
+            resetFlow();
+            return;
+        }
+
+        String maVeMoi = result.getMaVeMoi();
+        String maHD = result.getMaHoaDon();
+        pendingInvoiceId = maHD;
+        String summary = String.format(
+                "Đã đổi thành công sang vé %s. Mã HĐ: %s. Tổng tiền đã trả: %s",
+                maVeMoi,
+                maHD != null ? maHD : "-",
+                formatVND(tongTien));
+
+        pendingTicketIds = maVeMoi != null ? List.of(maVeMoi) : Collections.emptyList();
+        exportPanel.setInfoMessage(summary);
+        wizard.show(cards, CARD_EXPORT);
+    }
+    
+    private void handleExportInvoice(java.awt.Component parent, String maHoaDon) {
+        if (maHoaDon == null || maHoaDon.isBlank()) {
+            JOptionPane.showMessageDialog(parent, "Không có mã hóa đơn để in.");
+            return;
+        }
+
+        try {
+            HoaDonPdfDao dao = new HoaDonPdfDao();
+            Optional<InvoicePdfInfo> infoOpt = dao.findByMaHoaDon(maHoaDon);
+            if (infoOpt.isEmpty()) {
+                JOptionPane.showMessageDialog(parent,
+                        "Không tìm thấy dữ liệu cho hóa đơn " + maHoaDon,
+                        "Lỗi",
+                        JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            Path exportDir = Paths.get("HoaDon");
+            Files.createDirectories(exportDir);
+            Path output = exportDir.resolve("HD" + infoOpt.get().getMaHoaDon() + ".pdf");
+
+            HDPdfExporter.export(infoOpt.get(), output.toString());
+
+            try {
+                if (Desktop.isDesktopSupported()) {
+                    Desktop.getDesktop().open(output.toFile());
+                }
+            } catch (Exception ioe) {
+                JOptionPane.showMessageDialog(parent,
+                        "Không thể mở tệp vừa lưu: " + ioe.getMessage(),
+                        "Cảnh báo",
+                        JOptionPane.WARNING_MESSAGE);
+            }
+
+            JOptionPane.showMessageDialog(parent,
+                    "Đã xuất hóa đơn: " + output.toString());
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(parent,
+                    "Có lỗi khi xuất hóa đơn: " + ex.getMessage(),
+                    "Lỗi",
+                    JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
+    private void handleExportTicket(java.awt.Component parent, List<String> maVeList) {
+        if (maVeList == null || maVeList.isEmpty()) {
+            JOptionPane.showMessageDialog(parent, "Không có vé nào để in.");
+            return;
+        }
+
+        String selectedTicket = maVeList.get(0);
+        if (maVeList.size() > 1) {
+            Object choice = JOptionPane.showInputDialog(parent,
+                    "Chọn mã vé cần in",
+                    "In vé",
+                    JOptionPane.PLAIN_MESSAGE,
+                    null,
+                    maVeList.toArray(),
+                    selectedTicket);
+            if (choice == null) {
+                return;
+            }
+            selectedTicket = choice.toString();
+        }
+
+        try {
+            TicketPdfDao dao = new TicketPdfDao();
+            Optional<TicketPdfInfo> infoOpt = dao.findByMaVe(selectedTicket);
+            if (infoOpt.isEmpty()) {
+                JOptionPane.showMessageDialog(parent,
+                        "Không tìm thấy dữ liệu cho mã vé " + selectedTicket,
+                        "Lỗi",
+                        JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            Path exportDir = Paths.get("Ve");
+            Files.createDirectories(exportDir);
+            Path output = exportDir.resolve(selectedTicket + ".pdf");
+
+            TicketPdfExporter.export(infoOpt.get(), output.toString());
+
+            try {
+                if (Desktop.isDesktopSupported()) {
+                    Desktop.getDesktop().open(output.toFile());
+                }
+            } catch (Exception ioe) {
+                JOptionPane.showMessageDialog(parent,
+                        "Không thể mở tệp vừa lưu: " + ioe.getMessage(),
+                        "Cảnh báo",
+                        JOptionPane.WARNING_MESSAGE);
+            }
+
+            JOptionPane.showMessageDialog(parent,
+                    "Đã xuất vé: " + output.toString());
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(parent,
+                    "Có lỗi khi xuất vé: " + ex.getMessage(),
+                    "Lỗi",
+                    JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    private String formatVND(BigDecimal amount) {
+        NumberFormat nf = NumberFormat.getInstance(Locale.of("vi","VN"));
+        return nf.format(amount) + "₫";
     }
 
     private class ChooseTripPage extends JPanel {

@@ -1,5 +1,5 @@
 package entity;
-
+// -- Thông tin tóm tắt về chuyến tàu để hiển thị ở bước thanh toán --
 public class TrainInfo {
     private final String code;
     private final String depart;

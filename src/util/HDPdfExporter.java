@@ -25,7 +25,7 @@ public class HDPdfExporter {
     private static final float MARGIN_T = 36f;
     private static final float MARGIN_B = 48f;
 
-    // Đường dẫn font Unicode
+    //font Unicode
     private static final String FONT_PATH = "C:/Windows/Fonts/times.ttf";
 
     // ====== Model đơn giản ======

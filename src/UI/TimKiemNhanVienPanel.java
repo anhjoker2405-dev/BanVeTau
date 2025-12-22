@@ -28,7 +28,7 @@ public class TimKiemNhanVienPanel extends JPanel {
     private final JButton btnLamMoi = new JButton("Làm mới");
 
     private final DefaultTableModel tableModel = new DefaultTableModel(
-            new String[]{"Mã NV", "Tên NV", "SĐT", "Email", "CCCD", "Loại NV"}, 0
+            new String[]{"Mã Nhân Viên", "Tên Nhân Viên", "Số Điện Thoại", "Email", "CCCD", "Loại Nhân Viên"}, 0
     ) {
         @Override
         public boolean isCellEditable(int r, int c) {
@@ -88,12 +88,12 @@ public class TimKiemNhanVienPanel extends JPanel {
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         int row = 0;
-        addFilter(panel, gbc, row++, new JLabel("Mã NV:"), txtMaNV);
-        addFilter(panel, gbc, row++, new JLabel("Tên NV:"), txtTenNV);
-        addFilter(panel, gbc, row++, new JLabel("SĐT:"), txtSDT);
+        addFilter(panel, gbc, row++, new JLabel("Mã Nhân Viên:"), txtMaNV);
+        addFilter(panel, gbc, row++, new JLabel("Tên Nhân Viên:"), txtTenNV);
+        addFilter(panel, gbc, row++, new JLabel("Số Điện Thoại:"), txtSDT);
         addFilter(panel, gbc, row++, new JLabel("Email:"), txtEmail);
         addFilter(panel, gbc, row++, new JLabel("CCCD:"), txtCCCD);
-        addFilter(panel, gbc, row++, new JLabel("Loại NV:"), cboLoaiNV);
+        addFilter(panel, gbc, row++, new JLabel("Loại Nhân Viên:"), cboLoaiNV);
 
         JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
         actionPanel.setOpaque(false);

@@ -12,7 +12,10 @@ public class ThanhToan_Dao {
     private final Ve_Dao veDao = new Ve_Dao();
     private final SeatAvailabilityDao seatAvailabilityDao = new SeatAvailabilityDao();
 
-    /** Lưu 1 hóa đơn + danh sách vé (mỗi vé 1 chi tiết), thực hiện trong TRANSACTION */
+    /**
+     * Lưu hóa đơn và các vé tương ứng trong một transaction.
+     * Quy trình này được dùng cho màn hình thanh toán sau khi chọn ghế.
+     */
     public PaymentResult luuHoaDonVaVe(String maNV, String maHK, String maChuyenTau, List<String> danhSachMaGhe,
                                        BigDecimal donGiaMoiVe, BigDecimal vat, String maKM) throws SQLException {
         try (Connection cn = ConnectDB.getInstance().getConnection()) {
@@ -49,6 +52,7 @@ public class ThanhToan_Dao {
         }
     }
     
+    // -- Sinh mã vé mới dựa trên thời gian hệ thống để tránh trùng lặp --
     private String generateTicketId(int index) {
         long nano = System.nanoTime();
         long base = Math.abs(nano % 1_000_000_0000L); // 10 chữ số
@@ -56,6 +60,9 @@ public class ThanhToan_Dao {
         return String.format("VE%010d%02d", base, suffix);
     }
     
+        /**
+     * Lưu thông tin đổi vé: hủy vé cũ, tạo vé mới và cập nhật hóa đơn kèm refresh chỗ ngồi.
+     */
     public ExchangeResult luuDoiVe(String maNV, String maHK, String maVeCu, String maChuyenTauCu,
                                    String maChuyenTauMoi, String maGheMoi, String maLoaiVeMoi,
                                    BigDecimal giaVeMoi, BigDecimal tongThanhToan) throws SQLException {
